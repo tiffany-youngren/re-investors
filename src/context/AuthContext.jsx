@@ -14,18 +14,28 @@ function withTimeout(promise, ms = 6000) {
 
 async function fetchUserProfile(userId) {
   try {
-    const { data, error } = await withTimeout(
-      supabase.rpc('get_user_profile', { p_user_id: userId })
+    const response = await withTimeout(
+      supabase.rpc('get_user_profile', { p_user_id: userId }).then(res => res)
     )
+    const { data, error } = response
+
+    console.log('RPC raw response:', JSON.stringify({ data, error }))
+
     if (error) {
       console.error('RPC get_user_profile error:', error.message)
       return null
     }
-    // RPC returns an array; we want the first row
+
+    // Handle both array and single object responses
+    let profileRow = null
     if (Array.isArray(data) && data.length > 0) {
-      return data[0]
+      profileRow = data[0]
+    } else if (data && typeof data === 'object' && !Array.isArray(data)) {
+      profileRow = data
     }
-    return null
+
+    console.log('Parsed profile:', JSON.stringify(profileRow))
+    return profileRow
   } catch (err) {
     console.error('Profile fetch failed:', err.message)
     return null
