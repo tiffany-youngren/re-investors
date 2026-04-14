@@ -1,29 +1,22 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext()
 
 async function fetchUserProfile(userId) {
   try {
-    const { data, error } = await supabase.rpc('get_user_profile', { p_user_id: userId })
-
-    console.log('RPC raw response:', JSON.stringify({ data, error }))
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, user_id, full_name, email, phone, license_status, brokerage_name, role, approved')
+      .eq('user_id', userId)
+      .single()
 
     if (error) {
-      console.error('RPC get_user_profile error:', error.message)
+      console.error('Profile query error:', error.message)
       return null
     }
 
-    // Handle both array and single object responses
-    let profileRow = null
-    if (Array.isArray(data) && data.length > 0) {
-      profileRow = data[0]
-    } else if (data && typeof data === 'object' && !Array.isArray(data)) {
-      profileRow = data
-    }
-
-    console.log('Parsed profile:', JSON.stringify(profileRow))
-    return profileRow
+    return data
   } catch (err) {
     console.error('Profile fetch failed:', err.message)
     return null
@@ -36,33 +29,56 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [roleLoading, setRoleLoading] = useState(false)
+  const fetchInProgress = useRef(false)
+  const debounceTimer = useRef(null)
 
   useEffect(() => {
-    // Use ONLY onAuthStateChange — it fires INITIAL_SESSION on mount,
-    // SIGNED_IN on login, and SIGNED_OUT on logout.
-    // No separate getSession() call needed — that causes lock contention.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log('Auth event:', event)
-
+      (event, currentSession) => {
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
 
-        if (currentSession?.user) {
-          setRoleLoading(true)
-          const profileData = await fetchUserProfile(currentSession.user.id)
-          setProfile(profileData)
-          setRoleLoading(false)
-        } else {
+        if (!currentSession?.user) {
           setProfile(null)
+          setLoading(false)
+          return
         }
 
-        setLoading(false)
+        // Debounce: if multiple events fire rapidly, only process the last one
+        if (debounceTimer.current) {
+          clearTimeout(debounceTimer.current)
+        }
+
+        debounceTimer.current = setTimeout(async () => {
+          const userId = currentSession.user.id
+
+          // Skip if a fetch is already running for this user
+          if (fetchInProgress.current) return
+          fetchInProgress.current = true
+
+          setRoleLoading(true)
+          const profileData = await fetchUserProfile(userId)
+          setProfile(profileData)
+          setRoleLoading(false)
+          setLoading(false)
+
+          fetchInProgress.current = false
+        }, 100)
       }
     )
 
+    // Safety net: if no auth event fires within 3 seconds, stop loading
+    const safetyTimeout = setTimeout(() => {
+      setLoading((current) => {
+        if (current) return false
+        return current
+      })
+    }, 3000)
+
     return () => {
       subscription.unsubscribe()
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      clearTimeout(safetyTimeout)
     }
   }, [])
 
@@ -72,7 +88,6 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    // Clear state immediately so UI updates right away
     setSession(null)
     setUser(null)
     setProfile(null)

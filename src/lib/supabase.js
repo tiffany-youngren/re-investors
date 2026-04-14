@@ -8,5 +8,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     storage: localStorage,
+    storageKey: 're-investors-auth',
   },
 })
