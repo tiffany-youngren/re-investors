@@ -3,21 +3,9 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext()
 
-function withTimeout(promise, ms = 6000) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out')), ms)
-    ),
-  ])
-}
-
 async function fetchUserProfile(userId) {
   try {
-    const response = await withTimeout(
-      supabase.rpc('get_user_profile', { p_user_id: userId }).then(res => res)
-    )
-    const { data, error } = response
+    const { data, error } = await supabase.rpc('get_user_profile', { p_user_id: userId })
 
     console.log('RPC raw response:', JSON.stringify({ data, error }))
 
@@ -49,77 +37,55 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [roleLoading, setRoleLoading] = useState(false)
 
-  // Load profile for a given user
-  async function loadProfile(userId) {
-    setRoleLoading(true)
-    const profileData = await fetchUserProfile(userId)
-    setProfile(profileData)
-    setRoleLoading(false)
-  }
-
   useEffect(() => {
-    // 1. Get the initial session
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      setSession(currentSession)
-      setUser(currentSession?.user ?? null)
-
-      if (currentSession?.user) {
-        await loadProfile(currentSession.user.id)
-      }
-
-      setLoading(false)
-    })
-
-    // 2. Listen for auth state changes
+    // Use ONLY onAuthStateChange — it fires INITIAL_SESSION on mount,
+    // SIGNED_IN on login, and SIGNED_OUT on logout.
+    // No separate getSession() call needed — that causes lock contention.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        console.log('Auth event:', event)
+
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
 
         if (currentSession?.user) {
-          await loadProfile(currentSession.user.id)
+          setRoleLoading(true)
+          const profileData = await fetchUserProfile(currentSession.user.id)
+          setProfile(profileData)
+          setRoleLoading(false)
         } else {
           setProfile(null)
         }
 
-        // Ensure loading is false after any auth event
         setLoading(false)
       }
     )
 
-    // 3. Re-fetch profile when the tab regains focus
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        supabase.auth.getSession().then(({ data: { session: s } }) => {
-          if (s?.user) {
-            loadProfile(s.user.id)
-          }
-        })
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
     return () => {
       subscription.unsubscribe()
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    // onAuthStateChange will handle setting session/user/profile
     return { data, error }
   }
 
   async function signOut() {
+    // Clear state immediately so UI updates right away
+    setSession(null)
+    setUser(null)
+    setProfile(null)
     const { error } = await supabase.auth.signOut()
-    // onAuthStateChange will clear session/user/profile
     if (error) console.error('Error signing out:', error.message)
   }
 
   async function refreshProfile() {
     if (user) {
-      await loadProfile(user.id)
+      setRoleLoading(true)
+      const profileData = await fetchUserProfile(user.id)
+      setProfile(profileData)
+      setRoleLoading(false)
     }
   }
 
