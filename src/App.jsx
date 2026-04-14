@@ -9,6 +9,7 @@ import PendingApproval from './pages/PendingApproval'
 import Buyers from './pages/Buyers'
 import Sellers from './pages/Sellers'
 import AdminDashboard from './pages/AdminDashboard'
+import Profile from './pages/Profile'
 import ResetPassword from './pages/ResetPassword'
 
 const queryClient = new QueryClient({
@@ -48,6 +49,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Sellers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
                   </ProtectedRoute>
                 }
               />

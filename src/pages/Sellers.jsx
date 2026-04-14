@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import ProfileForm from '../components/ProfileForm'
 import PropertyForm from '../components/PropertyForm'
 
 function isProfileComplete(profile) {
@@ -43,7 +43,11 @@ export default function Sellers() {
     return (
       <div className="sellers-page">
         <h1>Sellers</h1>
-        <ProfileForm />
+        <div className="form-card">
+          <h2>Complete Your Profile First</h2>
+          <p>You need to fill out your profile before listing properties.</p>
+          <Link to="/profile" className="btn" style={{ marginTop: 16 }}>Go to Profile</Link>
+        </div>
       </div>
     )
   }
