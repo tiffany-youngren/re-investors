@@ -138,7 +138,7 @@ export default function AdminDashboard() {
         {pendingUsers.map((u) => (
           <div key={u.id} className="admin-card">
             <div className="admin-card-info">
-              <strong>{u.full_name || 'No name'}</strong>
+              <strong>{[u.first_name, u.last_name].filter(Boolean).join(' ') || 'No name'}</strong>
               <span>{u.email}</span>
               {u.phone && <span>{u.phone}</span>}
               <span className="admin-badge badge-pending">Pending</span>
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
         {approvedUsers.map((u) => (
           <div key={u.id} className="admin-card">
             <div className="admin-card-info">
-              <strong>{u.full_name || 'No name'}</strong>
+              <strong>{[u.first_name, u.last_name].filter(Boolean).join(' ') || 'No name'}</strong>
               <span>{u.email}</span>
               {u.phone && <span>{u.phone}</span>}
               <span>{u.license_status || 'No license info'}</span>
@@ -214,7 +214,7 @@ export default function AdminDashboard() {
             <div className="admin-card-info">
               <strong>{p.address}</strong>
               <span>${Number(p.price).toLocaleString()}</span>
-              <span>by {p.profiles?.full_name || p.profiles?.email || 'Unknown'}</span>
+              <span>by {[p.profiles?.first_name, p.profiles?.last_name].filter(Boolean).join(' ') || p.profiles?.email || 'Unknown'}</span>
               <span className={`admin-badge ${p.approved ? 'badge-member' : 'badge-pending'}`}>
                 {p.approved ? 'Approved' : 'Pending'}
               </span>

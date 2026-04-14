@@ -7,7 +7,8 @@ import PropertyForm from '../components/PropertyForm'
 function isProfileComplete(profile) {
   return (
     profile &&
-    profile.full_name &&
+    profile.first_name &&
+    profile.last_name &&
     profile.phone &&
     profile.license_status &&
     (profile.license_status !== 'licensed' || profile.brokerage_name)

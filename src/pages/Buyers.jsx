@@ -13,7 +13,7 @@ export default function Buyers() {
     async function fetchProperties() {
       const { data, error } = await supabase
         .from('properties')
-        .select('*, property_images(*), profiles(full_name, phone, brokerage_name)')
+        .select('*, property_images(*), profiles(first_name, last_name, phone, brokerage_name)')
         .order('created_at', { ascending: false })
 
       if (error) {

@@ -33,8 +33,8 @@ export default function Profile() {
   const queryClient = useQueryClient()
 
   // Form state
-  const [firstName, setFirstName] = useState(profile?.first_name || profile?.full_name?.split(' ')[0] || '')
-  const [lastName, setLastName] = useState(profile?.last_name || profile?.full_name?.split(' ').slice(1).join(' ') || '')
+  const [firstName, setFirstName] = useState(profile?.first_name || '')
+  const [lastName, setLastName] = useState(profile?.last_name || '')
   const [phone, setPhone] = useState(profile?.phone || '')
   const [city, setCity] = useState(profile?.city || '')
   const [state, setState] = useState(profile?.state || '')
@@ -130,7 +130,6 @@ export default function Profile() {
 
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
     const profileData = {
-      full_name: fullName,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       phone: phone.trim(),

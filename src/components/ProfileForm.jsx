@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext'
 
 export default function ProfileForm() {
   const { user, profile, refreshProfile } = useAuth()
-  const [fullName, setFullName] = useState(profile?.full_name || '')
+  const [firstName, setFirstName] = useState(profile?.first_name || '')
+  const [lastName, setLastName] = useState(profile?.last_name || '')
   const [phone, setPhone] = useState(profile?.phone || '')
   const [licenseStatus, setLicenseStatus] = useState(profile?.license_status || '')
   const [brokerageName, setBrokerageName] = useState(profile?.brokerage_name || '')
@@ -25,7 +26,8 @@ export default function ProfileForm() {
     const profileData = {
       user_id: user.id,
       email: user.email,
-      full_name: fullName.trim(),
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
       phone: phone.trim(),
       license_status: licenseStatus,
       brokerage_name: licenseStatus === 'licensed' ? brokerageName.trim() : null,
@@ -58,12 +60,21 @@ export default function ProfileForm() {
         <h2>Complete Your Profile</h2>
         <p>You need to fill out your profile before listing properties.</p>
         <form onSubmit={handleSubmit}>
-          <label htmlFor="fullName">Full Name</label>
+          <label htmlFor="firstName">First Name</label>
           <input
-            id="fullName"
+            id="firstName"
             type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+          />
+
+          <label htmlFor="lastName">Last Name</label>
+          <input
+            id="lastName"
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
             required
           />
 

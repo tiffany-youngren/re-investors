@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { data, error } = await supabase
       .from('properties')
-      .select('*, profiles(full_name, email)')
+      .select('*, profiles(first_name, last_name, email)')
       .order('created_at', { ascending: false })
 
     if (error) return res.status(500).json({ error: error.message })
