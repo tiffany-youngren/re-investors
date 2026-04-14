@@ -96,11 +96,11 @@ export function AuthProvider({ children }) {
 
   async function refreshProfile() {
     if (user) {
-      setRoleLoading(true)
+      // Don't set roleLoading here — that would cause ProtectedRoute to
+      // show a loading screen and unmount the current page
       const { profile: profileData, error } = await fetchUserProfile(user.id)
       setProfile(profileData)
       setProfileError(error)
-      setRoleLoading(false)
     }
   }
 

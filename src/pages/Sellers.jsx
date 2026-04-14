@@ -50,7 +50,6 @@ export default function Sellers() {
 
   return (
     <div className="sellers-page">
-      <Link to="/" className="back-link">&larr; Back to Home</Link>
       <h1>Sellers</h1>
 
       <PropertyForm onSaved={fetchListings} />
