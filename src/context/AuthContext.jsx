@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext()
@@ -8,14 +8,12 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  async function fetchProfile(userId) {
-    // Add cache-busting timestamp to avoid stale reads
+  const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
       .single()
-      .abortSignal(undefined) // ensures fresh request
 
     if (error) {
       console.error('Error fetching profile:', error.message)
@@ -23,32 +21,47 @@ export function AuthProvider({ children }) {
     } else {
       setProfile(data)
     }
-  }
+    return { data, error }
+  }, [])
 
   useEffect(() => {
-    // Check current session on load and always fetch fresh profile
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      if (currentUser) {
-        fetchProfile(currentUser.id).then(() => setLoading(false))
-      } else {
-        setLoading(false)
-      }
-    })
+    let initialized = false
 
     // Listen for auth changes (login, logout, token refresh)
+    // Set this up FIRST so we don't miss events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
         const currentUser = session?.user ?? null
         setUser(currentUser)
+
         if (currentUser) {
-          fetchProfile(currentUser.id)
+          await fetchProfile(currentUser.id)
         } else {
           setProfile(null)
         }
+
+        // Mark loading done if initial getSession hasn't done it yet
+        if (!initialized) {
+          initialized = true
+          setLoading(false)
+        }
       }
     )
+
+    // Also check current session on initial load
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+
+      if (currentUser) {
+        await fetchProfile(currentUser.id)
+      }
+
+      if (!initialized) {
+        initialized = true
+        setLoading(false)
+      }
+    })
 
     // Re-fetch profile when the tab regains focus (catches DB changes)
     function handleVisibilityChange() {
@@ -66,7 +79,7 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [])
+  }, [fetchProfile])
 
   async function signUp(email, password) {
     const { data, error } = await supabase.auth.signUp({ email, password })
@@ -75,10 +88,16 @@ export function AuthProvider({ children }) {
 
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    // If sign-in succeeded, fetch profile immediately so it's ready
+    if (!error && data.user) {
+      await fetchProfile(data.user.id)
+    }
     return { data, error }
   }
 
   async function signOut() {
+    setProfile(null)
+    setUser(null)
     const { error } = await supabase.auth.signOut()
     if (error) console.error('Error signing out:', error.message)
   }
