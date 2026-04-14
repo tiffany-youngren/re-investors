@@ -182,3 +182,153 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
   padding: 60px 20px;
   color: var(--text);
 }
+
+/* Form cards (profile + property forms) */
+.form-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.form-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-card label {
+  font-weight: 500;
+  color: var(--text-h);
+  margin-top: 8px;
+}
+.form-card input,
+.form-card select,
+.form-card textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+  width: 100%;
+}
+.form-card textarea {
+  resize: vertical;
+}
+.form-card select:disabled {
+  background: #f3f4f6;
+  color: var(--text);
+}
+.form-card .btn {
+  margin-top: 16px;
+}
+.form-card .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.field-note {
+  font-size: 0.85rem;
+  color: var(--text);
+  margin: 4px 0 0;
+}
+.warning-msg {
+  color: #d97706;
+  font-size: 0.9rem;
+  margin: 4px 0 0;
+}
+
+/* Financing checkboxes */
+.financing-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-top: 8px;
+}
+.financing-fieldset legend {
+  font-weight: 500;
+  color: var(--text-h);
+  padding: 0 4px;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  margin-top: 4px;
+}
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+}
+
+/* Image previews */
+.image-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.image-preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+.image-preview-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 250px;
+}
+.remove-img-btn {
+  background: none;
+  border: none;
+  color: var(--error);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+/* Sellers page — listings */
+.sellers-page {
+  max-width: 700px;
+  margin: 0 auto;
+}
+.my-listings {
+  margin-top: 32px;
+}
+.listing-card {
+  display: flex;
+  gap: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.listing-thumb {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.listing-info h3 {
+  margin: 0 0 4px;
+  color: var(--text-h);
+  font-size: 1.1rem;
+}
+.listing-price {
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 4px;
+}
+.listing-meta {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.profile-form-wrapper {
+  max-width: 500px;
+}

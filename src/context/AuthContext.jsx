@@ -63,6 +63,12 @@ export function AuthProvider({ children }) {
     if (error) console.error('Error signing out:', error.message)
   }
 
+  async function refreshProfile() {
+    if (user) {
+      await fetchProfile(user.id)
+    }
+  }
+
   const value = {
     user,
     profile,
@@ -70,6 +76,7 @@ export function AuthProvider({ children }) {
     signUp,
     signIn,
     signOut,
+    refreshProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
