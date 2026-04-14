@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 async function getAuthToken() {
@@ -125,7 +124,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="admin-page">
-      <Link to="/" className="back-link">&larr; Back to Home</Link>
       <h1>Admin Dashboard</h1>
 
       {error && <p className="error-msg">{error}</p>}

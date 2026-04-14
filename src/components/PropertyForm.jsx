@@ -64,7 +64,7 @@ async function resizeImage(file, maxWidth = 1200) {
 
 export default function PropertyForm({ onSaved }) {
   const { user, profile } = useAuth()
-  const isLicensed = profile?.license_status === 'Licensed in Montana'
+  const isLicensed = profile?.license_status === 'licensed'
 
   const [address, setAddress] = useState('')
   const [price, setPrice] = useState('')

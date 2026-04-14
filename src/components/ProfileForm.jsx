@@ -16,7 +16,7 @@ export default function ProfileForm() {
     setError('')
     setSubmitting(true)
 
-    if (licenseStatus === 'Licensed in Montana' && !brokerageName.trim()) {
+    if (licenseStatus === 'licensed' && !brokerageName.trim()) {
       setError('Brokerage name is required for licensed members.')
       setSubmitting(false)
       return
@@ -28,7 +28,7 @@ export default function ProfileForm() {
       full_name: fullName.trim(),
       phone: phone.trim(),
       license_status: licenseStatus,
-      brokerage_name: licenseStatus === 'Licensed in Montana' ? brokerageName.trim() : null,
+      brokerage_name: licenseStatus === 'licensed' ? brokerageName.trim() : null,
     }
 
     let result
@@ -82,18 +82,18 @@ export default function ProfileForm() {
             value={licenseStatus}
             onChange={(e) => {
               setLicenseStatus(e.target.value)
-              if (e.target.value !== 'Licensed in Montana') {
+              if (e.target.value !== 'licensed') {
                 setBrokerageName('')
               }
             }}
             required
           >
             <option value="">Select...</option>
-            <option value="Unlicensed">Unlicensed</option>
-            <option value="Licensed in Montana">Licensed in Montana</option>
+            <option value="unlicensed">Unlicensed</option>
+            <option value="licensed">Licensed Agent/Broker</option>
           </select>
 
-          {licenseStatus === 'Licensed in Montana' && (
+          {licenseStatus === 'licensed' && (
             <>
               <label htmlFor="brokerageName">Brokerage Name</label>
               <input

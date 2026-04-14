@@ -2,12 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Home() {
-  const { user, profile, signOut } = useAuth()
-
-  async function handleLogOut() {
-    await signOut()
-    window.location.href = '/'
-  }
+  const { user, profile } = useAuth()
 
   return (
     <div className="home-page">
@@ -15,28 +10,24 @@ export default function Home() {
         <h1>Billings RE Investors</h1>
         <p className="subtitle">A member portal for the Billings, Montana real estate investor meetup group.</p>
 
-        <nav className="home-nav">
-          {user ? (
-            <>
-              {profile?.approved && <Link to="/buyers" className="btn">Buyers</Link>}
-              {profile?.approved && <Link to="/sellers" className="btn">Sellers</Link>}
-              {profile?.role === 'admin' && <Link to="/admin" className="btn">Admin</Link>}
-              <button onClick={handleLogOut} className="btn btn-secondary">Log Out</button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="btn">Log In</Link>
-              <Link to="/login?mode=signup" className="btn btn-secondary">Sign Up</Link>
-            </>
-          )}
-        </nav>
+        {!user && (
+          <nav className="home-nav">
+            <Link to="/login" className="btn">Log In</Link>
+            <Link to="/login?mode=signup" className="btn btn-secondary">Sign Up</Link>
+          </nav>
+        )}
+        {user && !profile?.approved && (
+          <nav className="home-nav">
+            <Link to="/pending" className="btn btn-secondary">Check Approval Status</Link>
+          </nav>
+        )}
       </header>
 
       <section className="home-about">
         <h2>What is this?</h2>
         <p>
           This is a private listing platform for members of our Billings RE Investors meetup.
-          Once approved, members can browse properties for sale (Buyers page) or list their own
+          Once approved, members can browse properties for sale (For Sale page) or list their own
           fixer, multi-family, or commercial properties (Sellers page).
         </p>
       </section>

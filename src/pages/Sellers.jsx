@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileForm from '../components/ProfileForm'
@@ -11,7 +10,7 @@ function isProfileComplete(profile) {
     profile.full_name &&
     profile.phone &&
     profile.license_status &&
-    (profile.license_status !== 'Licensed in Montana' || profile.brokerage_name)
+    (profile.license_status !== 'licensed' || profile.brokerage_name)
   )
 }
 
@@ -43,7 +42,6 @@ export default function Sellers() {
   if (!isProfileComplete(profile)) {
     return (
       <div className="sellers-page">
-        <Link to="/" className="back-link">&larr; Back to Home</Link>
         <h1>Sellers</h1>
         <ProfileForm />
       </div>

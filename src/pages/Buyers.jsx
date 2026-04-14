@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import PropertyCard from '../components/PropertyCard'
 
@@ -36,8 +35,7 @@ export default function Buyers() {
 
   return (
     <div className="buyers-page">
-      <Link to="/" className="back-link">&larr; Back to Home</Link>
-      <h1>Buyers</h1>
+      <h1>For Sale</h1>
 
       {/* Filters */}
       <div className="filters-bar">

@@ -4,25 +4,19 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext()
 
 async function fetchUserProfile(userId) {
-  console.log('Fetching profile for user_id:', userId)
-
   try {
-    const { data, error, status } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('id, user_id, full_name, email, phone, license_status, brokerage_name, role, approved')
       .eq('user_id', userId)
       .single()
 
-    console.log('Profile query result:', { data, error, status })
-
     if (error) {
-      console.error('Profile query error:', error.message, 'status:', status)
       return { profile: null, error: error.message }
     }
 
     return { profile: data, error: null }
   } catch (err) {
-    console.error('Profile fetch exception:', err.message)
     return { profile: null, error: err.message }
   }
 }
@@ -40,8 +34,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
-        console.log('Auth event:', event, 'user:', currentSession?.user?.id)
-
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
 
@@ -52,7 +44,6 @@ export function AuthProvider({ children }) {
           return
         }
 
-        // Debounce: if multiple events fire rapidly, only process the last one
         if (debounceTimer.current) {
           clearTimeout(debounceTimer.current)
         }
@@ -60,7 +51,6 @@ export function AuthProvider({ children }) {
         debounceTimer.current = setTimeout(async () => {
           const userId = currentSession.user.id
 
-          // Skip if a fetch is already running
           if (fetchInProgress.current) return
           fetchInProgress.current = true
 
@@ -76,7 +66,6 @@ export function AuthProvider({ children }) {
       }
     )
 
-    // Safety net: if no auth event fires within 3 seconds, stop loading
     const safetyTimeout = setTimeout(() => {
       setLoading((current) => {
         if (current) return false

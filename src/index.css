@@ -26,10 +26,124 @@ body {
 }
 
 #root {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0 20px 20px;
   min-height: 100svh;
+}
+
+/* Navbar */
+.navbar {
+  margin: 0 -20px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-bg);
+  margin-bottom: 20px;
+}
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+}
+.nav-brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-h);
+  text-decoration: none;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nav-link {
+  padding: 8px 14px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-link:hover {
+  background: #f3f4f6;
+  color: var(--text-h);
+}
+.nav-link.active {
+  background: var(--accent);
+  color: #fff;
+}
+.nav-user {
+  padding: 0 12px;
+  font-size: 0.85rem;
+  color: var(--text);
+  border-left: 1px solid var(--border);
+  margin-left: 8px;
+}
+.nav-logout {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+  margin-left: 4px;
+}
+.nav-logout:hover {
+  background: #f3f4f6;
+  color: var(--text-h);
+}
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+.hamburger {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--text-h);
+  position: relative;
+}
+.hamburger::before,
+.hamburger::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 20px;
+  height: 2px;
+  background: var(--text-h);
+  transition: transform 0.2s;
+}
+.hamburger::before { top: -6px; }
+.hamburger::after { top: 6px; }
+.hamburger.open { background: transparent; }
+.hamburger.open::before { top: 0; transform: rotate(45deg); }
+.hamburger.open::after { top: 0; transform: rotate(-45deg); }
+
+@media (max-width: 640px) {
+  .nav-hamburger { display: block; }
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    gap: 8px;
+    z-index: 100;
+  }
+  .nav-links-open { display: flex; }
+  .nav-link { width: 100%; padding: 10px 14px; }
+  .nav-user { border-left: none; margin-left: 0; padding: 8px 0; }
+  .nav-logout { width: 100%; text-align: center; }
+  .navbar { position: relative; }
 }
 
 h1, h2 {
