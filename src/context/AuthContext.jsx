@@ -4,22 +4,26 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext()
 
 async function fetchUserProfile(userId) {
+  console.log('Fetching profile for user_id:', userId)
+
   try {
-    const { data, error } = await supabase
+    const { data, error, status } = await supabase
       .from('profiles')
       .select('id, user_id, full_name, email, phone, license_status, brokerage_name, role, approved')
       .eq('user_id', userId)
       .single()
 
+    console.log('Profile query result:', { data, error, status })
+
     if (error) {
-      console.error('Profile query error:', error.message)
-      return null
+      console.error('Profile query error:', error.message, 'status:', status)
+      return { profile: null, error: error.message }
     }
 
-    return data
+    return { profile: data, error: null }
   } catch (err) {
-    console.error('Profile fetch failed:', err.message)
-    return null
+    console.error('Profile fetch exception:', err.message)
+    return { profile: null, error: err.message }
   }
 }
 
@@ -27,6 +31,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [profileError, setProfileError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [roleLoading, setRoleLoading] = useState(false)
   const fetchInProgress = useRef(false)
@@ -35,11 +40,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        console.log('Auth event:', event, 'user:', currentSession?.user?.id)
+
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
 
         if (!currentSession?.user) {
           setProfile(null)
+          setProfileError(null)
           setLoading(false)
           return
         }
@@ -52,13 +60,14 @@ export function AuthProvider({ children }) {
         debounceTimer.current = setTimeout(async () => {
           const userId = currentSession.user.id
 
-          // Skip if a fetch is already running for this user
+          // Skip if a fetch is already running
           if (fetchInProgress.current) return
           fetchInProgress.current = true
 
           setRoleLoading(true)
-          const profileData = await fetchUserProfile(userId)
+          const { profile: profileData, error } = await fetchUserProfile(userId)
           setProfile(profileData)
+          setProfileError(error)
           setRoleLoading(false)
           setLoading(false)
 
@@ -91,6 +100,7 @@ export function AuthProvider({ children }) {
     setSession(null)
     setUser(null)
     setProfile(null)
+    setProfileError(null)
     const { error } = await supabase.auth.signOut()
     if (error) console.error('Error signing out:', error.message)
   }
@@ -98,8 +108,9 @@ export function AuthProvider({ children }) {
   async function refreshProfile() {
     if (user) {
       setRoleLoading(true)
-      const profileData = await fetchUserProfile(user.id)
+      const { profile: profileData, error } = await fetchUserProfile(user.id)
       setProfile(profileData)
+      setProfileError(error)
       setRoleLoading(false)
     }
   }
@@ -108,6 +119,7 @@ export function AuthProvider({ children }) {
     user,
     session,
     profile,
+    profileError,
     loading,
     roleLoading,
     signIn,
