@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import PendingApproval from './pages/PendingApproval'
@@ -9,14 +11,37 @@ import AdminDashboard from './pages/AdminDashboard'
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/pending" element={<PendingApproval />} />
-        <Route path="/buyers" element={<Buyers />} />
-        <Route path="/sellers" element={<Sellers />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/pending" element={<PendingApproval />} />
+          <Route
+            path="/buyers"
+            element={
+              <ProtectedRoute>
+                <Buyers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sellers"
+            element={
+              <ProtectedRoute>
+                <Sellers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
