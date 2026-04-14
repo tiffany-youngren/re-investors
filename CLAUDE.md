@@ -1,90 +1,56 @@
 # CLAUDE.md
 
 ## What This Project Is
-A member portal for a real estate investor meetup group in Billings, Montana. Members can sign up, get approved by an admin, and then list properties for sale or browse properties to buy. Three user roles: visitor (pending approval), member (approved), and admin (manages approvals and site).
+Member portal for the Based in Billings real estate investor meetup group. Members list properties for sale, post buy boxes (what they want to buy), and browse other members' listings. Three roles: visitor (browse only), member (post + browse), admin (manage everything).
 
 ## Tech Stack
 - Frontend: React 19 (Vite 8 bundler)
+- Data fetching: React Query (@tanstack/react-query)
 - API routes: `api/` folder (Vercel serverless functions)
 - Hosting: Vercel, auto-deploys from GitHub on push to main
 - Auth & Database: Supabase (auth, PostgreSQL database, image storage)
+- Routing: react-router-dom with persistent Layout shell
 - Build command: `npm run build`
 - Dev server: `npm run dev`
+- Live URL: https://reinvestors.aiwithtiffany.com
 
 ## External Services
 - `VITE_SUPABASE_URL` — Supabase project URL (used in frontend)
 - `VITE_SUPABASE_ANON_KEY` — Supabase anonymous/public key (used in frontend)
-- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (used in API routes only, never in frontend)
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (used in API routes only, NEVER in frontend)
 
-## User Roles & Approval Flow
-- **Visitor:** Signs up but cannot access listings until approved by admin
-- **Member:** Approved by admin. Can browse Buyers page and add properties on Sellers page
-- **Admin:** Approves/denies visitors and members. Full access to manage users and listings
-- All new sign-ups start as "visitor" (pending). Admin must approve before they can access the site.
-
-## Member Profile Requirements
-Before a member can add a property, they must have on file:
-- Full name
-- Email address
-- Phone number
-- License status: "Licensed in Montana" or "Unlicensed"
-- If licensed: brokerage name (required)
+## User Roles
+- **Visitor:** Can browse For Sale and Buy Box pages. Cannot post listings or buy boxes. Becomes a member when admin verifies attendance (2 of last 4 meetups) and profile completeness.
+- **Member:** Full access. Can post properties for sale, add 1-4 buy boxes, edit/delete own content.
+- **Admin:** All member permissions + approve/deny users, toggle visitor↔member, flag/unflag listings, manage all content.
 
 ## License Rules
-- **Unlicensed members** may ONLY list their OWN properties (seller type must be "selling own property")
-- **Licensed members** may list their own properties AND add listings for multi-family or fixer properties as agents
-
-## Pages
-- **Home / Landing** — public, explains the group, shows disclaimer, sign-up/login links
-- **Login / Sign Up** — Supabase auth
-- **Pending Approval** — shown to visitors who signed up but aren't approved yet
-- **Buyers** — browse all approved property listings (members only)
-- **Sellers** — add/edit/manage your own property listings (members only)
-- **Admin Dashboard** — approve/deny users, manage all listings (admin only)
-
-## Property Listing Requirements (Sellers Page)
-Every property for sale MUST include:
-- Address
-- Price
-- Seller type: "wholesaling," "listing agent," or "selling own property"
-- Property type: fixer, multi-family, or commercial (ALL listings must be one of these)
-- If multi-family: number of units
-- Occupancy status: vacant, rented, or owner-occupied
-- Condition: fixer or turn-key
-- Financing available (select all that apply): seller financing, cash at closing, sub-to, conventional, FHA, VA, other
-- At least 1 image, max 10 images (auto-downsized to web/wide format on upload)
-- Description/details: required, max 300 words, must not contain phrases prohibited by FHA
-- **Optional:** estimated ARV (after repair value)
-- **Optional:** link to virtual tour or listing URL
-
-## Property Type Restrictions
-- ALL properties for sale must be: fixers, multi-family, or commercial
-- No single-family turn-key residential listings (unless they are fixers)
-
-## Disclaimer (must appear on the site)
-"This is a listing service provided exclusively for meetup members. We are not licensed real estate agents and do not provide real estate brokerage services. This platform is a marketing avenue for members only. Realtor members and licensed agents are exclusively responsible for following all MLS, Realtor association, and state licensing rules and regulations."
-
-## FHA Compliance
-Property descriptions must be screened for phrases that violate Fair Housing Act guidelines. Block or warn on discriminatory language related to race, color, religion, sex, national origin, familial status, or disability.
-
-## Image Handling
-- Stored in Supabase Storage
-- Auto-resize on upload to web-optimized wide format (max ~1200px wide)
-- Minimum 1 image required, maximum 10 per listing
+- **Unlicensed members:** Can ONLY list their OWN properties (seller type = "selling own property")
+- **Licensed Agent/Broker:** Can list own properties AND add listings as agents. Must provide brokerage name.
 
 ## Key Files
-(Update this list as files are created)
-- `src/App.jsx` — main app component, routing
-- `src/pages/Home.jsx` — public landing page with disclaimer
-- `src/pages/Login.jsx` — login/signup page
-- `src/pages/PendingApproval.jsx` — shown to unapproved users
-- `src/pages/Buyers.jsx` — browse property listings
-- `src/pages/Sellers.jsx` — add/edit/manage own listings
-- `src/pages/AdminDashboard.jsx` — admin user/listing management
-- `src/components/PropertyForm.jsx` — the property listing form
-- `src/components/PropertyCard.jsx` — property display card for Buyers page
+- `src/App.jsx` — routing, Layout shell, auth providers
+- `src/context/AuthContext.jsx` — Supabase auth state, profile fetch
+- `src/components/Navbar.jsx` — top navigation bar
+- `src/components/ProtectedRoute.jsx` — role-based route protection
 - `src/lib/supabase.js` — Supabase client initialization
-- `api/approve-user.js` — serverless function for admin approval (uses service role key)
+- `src/pages/Home.jsx` — public landing page
+- `src/pages/Login.jsx` — login/signup/forgot password
+- `src/pages/Sellers.jsx` — post/manage own property listings
+- `src/pages/AdminDashboard.jsx` — admin user/listing management
+- `api/admin-users.js` — admin user management (uses service role key)
+- `api/admin-properties.js` — admin listing management (uses service role key)
+
+## Supabase Tables
+- `profiles` — user profiles (name, email, phone, location, license info, role, approval)
+- `properties` — property listings (address, price, type, condition, financing, status)
+- `property_units` — per-unit details for multi-family properties
+- `property_images` — image references linked to properties
+- `buy_boxes` — buyer criteria (areas, types, price range, expected returns)
+
+## Storage Buckets
+- `property-images` — property photos (public, 5MB limit, jpeg/png/webp)
+- `avatars` — user profile photos
 
 ## Environment Variables
 Set in Vercel dashboard (Settings → Environment Variables → all environments):
@@ -92,26 +58,25 @@ Set in Vercel dashboard (Settings → Environment Variables → all environments
 - `VITE_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-For local dev, also add these to the `.env` file in the project root.
-
-## Supabase Tables (planned)
-- `profiles` — user profiles (name, email, phone, license status, brokerage, role, approval status)
-- `properties` — property listings (all required fields above, foreign key to profiles)
-- `property_images` — image references linked to properties
-
 ## Deploy
-Auto-deploys from GitHub. After changes:
 ```
 git add -A && git commit -m "describe change" && git push
 ```
 
 ## Things That Break Easily
-(Add to this list as gotchas are discovered)
-- Supabase anon key is safe for frontend (it respects Row Level Security) but service role key must NEVER be in frontend code
-- Image uploads must go through Supabase Storage, not stored as base64 in the database
-- FHA word filter must be maintained — update the blocked phrases list if new violations are discovered
-- Unlicensed members must be blocked from selecting "listing agent" as seller type — enforce in both UI and database
-- Property type must be fixer, multi-family, or commercial — enforce in both UI and database
+- **RLS infinite recursion:** NEVER create RLS policies on `profiles` that query `profiles` to check admin role. Admin reads all profiles through serverless API routes (service role key bypasses RLS).
+- **Auth token lock conflicts:** Use ONLY `onAuthStateChange` for auth state. NEVER combine with separate `getSession()` calls — they compete for the same auth token lock.
+- **Supabase client config:** Must include `persistSession: true` and `autoRefreshToken: true`.
+- **Profile query on login:** Query profiles table directly, not via RPC. Only redirect to pending if profile was successfully fetched AND `approved === false`. Show retry/loading state on errors.
+- **Service role key:** NEVER in frontend code. Only in `api/` serverless functions.
+- **Image uploads:** Must go through Supabase Storage, not base64 in database.
+- **FHA compliance:** Screen property descriptions for Fair Housing Act violations.
+- **License enforcement:** Block unlicensed members from "listing agent" seller type — enforce in UI and database.
+- **CHECK constraints:** Form dropdown values must exactly match database CHECK constraint values (case-sensitive).
+- **Missing imports after refactors:** When removing UI elements, verify their imports aren't still used elsewhere.
+- **vercel.json required:** Without the rewrite rule, page refreshes on non-root routes return 404.
 
 ## Recent Changes
-- 2026-04-13: Project created, initial scaffold
+- 2026-04-14: Project created, full auth system, sellers/buyers/admin pages, navbar
+- 2026-04-14: Fixed auth lock conflicts, RLS recursion, profile query issues
+- 2026-04-14: Ready for Phase 1 (React Query, Layout Shell, schema updates, buy boxes)
