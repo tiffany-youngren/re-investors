@@ -2,9 +2,10 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function ProtectedRoute({ children, requireAdmin }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, roleLoading } = useAuth()
 
-  if (loading) {
+  // Show spinner while auth or profile is loading
+  if (loading || roleLoading) {
     return <div className="loading">Loading...</div>
   }
 

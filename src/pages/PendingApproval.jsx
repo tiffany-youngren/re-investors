@@ -2,9 +2,10 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function PendingApproval() {
-  const { user, profile, loading, signOut } = useAuth()
+  const { user, profile, loading, roleLoading, signOut } = useAuth()
 
-  if (loading) {
+  // Show spinner while auth or profile is loading
+  if (loading || roleLoading) {
     return <div className="loading">Loading...</div>
   }
 
@@ -20,7 +21,6 @@ export default function PendingApproval() {
 
   async function handleLogOut() {
     await signOut()
-    // Hard redirect to clear all state reliably
     window.location.href = '/'
   }
 

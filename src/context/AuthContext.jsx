@@ -1,74 +1,88 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext()
 
+function withTimeout(promise, ms = 6000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out')), ms)
+    ),
+  ])
+}
+
+async function fetchUserProfile(userId) {
+  try {
+    const { data, error } = await withTimeout(
+      supabase.rpc('get_user_profile', { p_user_id: userId })
+    )
+    if (error) {
+      console.error('RPC get_user_profile error:', error.message)
+      return null
+    }
+    // RPC returns an array; we want the first row
+    if (Array.isArray(data) && data.length > 0) {
+      return data[0]
+    }
+    return null
+  } catch (err) {
+    console.error('Profile fetch failed:', err.message)
+    return null
+  }
+}
+
 export function AuthProvider({ children }) {
+  const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [roleLoading, setRoleLoading] = useState(false)
 
-  const fetchProfile = useCallback(async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-
-    if (error) {
-      console.error('Error fetching profile:', error.message)
-      setProfile(null)
-    } else {
-      setProfile(data)
-    }
-    return { data, error }
-  }, [])
+  // Load profile for a given user
+  async function loadProfile(userId) {
+    setRoleLoading(true)
+    const profileData = await fetchUserProfile(userId)
+    setProfile(profileData)
+    setRoleLoading(false)
+  }
 
   useEffect(() => {
-    let initialized = false
+    // 1. Get the initial session
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      setSession(currentSession)
+      setUser(currentSession?.user ?? null)
 
-    // Listen for auth changes (login, logout, token refresh)
-    // Set this up FIRST so we don't miss events
+      if (currentSession?.user) {
+        await loadProfile(currentSession.user.id)
+      }
+
+      setLoading(false)
+    })
+
+    // 2. Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
+      async (event, currentSession) => {
+        setSession(currentSession)
+        setUser(currentSession?.user ?? null)
 
-        if (currentUser) {
-          await fetchProfile(currentUser.id)
+        if (currentSession?.user) {
+          await loadProfile(currentSession.user.id)
         } else {
           setProfile(null)
         }
 
-        // Mark loading done if initial getSession hasn't done it yet
-        if (!initialized) {
-          initialized = true
-          setLoading(false)
-        }
+        // Ensure loading is false after any auth event
+        setLoading(false)
       }
     )
 
-    // Also check current session on initial load
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-
-      if (currentUser) {
-        await fetchProfile(currentUser.id)
-      }
-
-      if (!initialized) {
-        initialized = true
-        setLoading(false)
-      }
-    })
-
-    // Re-fetch profile when the tab regains focus (catches DB changes)
+    // 3. Re-fetch profile when the tab regains focus
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session?.user) {
-            fetchProfile(session.user.id)
+        supabase.auth.getSession().then(({ data: { session: s } }) => {
+          if (s?.user) {
+            loadProfile(s.user.id)
           }
         })
       }
@@ -79,40 +93,32 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [fetchProfile])
-
-  async function signUp(email, password) {
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    return { data, error }
-  }
+  }, [])
 
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    // If sign-in succeeded, fetch profile immediately so it's ready
-    if (!error && data.user) {
-      await fetchProfile(data.user.id)
-    }
+    // onAuthStateChange will handle setting session/user/profile
     return { data, error }
   }
 
   async function signOut() {
-    setProfile(null)
-    setUser(null)
     const { error } = await supabase.auth.signOut()
+    // onAuthStateChange will clear session/user/profile
     if (error) console.error('Error signing out:', error.message)
   }
 
   async function refreshProfile() {
     if (user) {
-      await fetchProfile(user.id)
+      await loadProfile(user.id)
     }
   }
 
   const value = {
     user,
+    session,
     profile,
     loading,
-    signUp,
+    roleLoading,
     signIn,
     signOut,
     refreshProfile,

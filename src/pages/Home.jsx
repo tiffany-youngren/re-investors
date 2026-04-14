@@ -4,6 +4,11 @@ import { useAuth } from '../context/AuthContext'
 export default function Home() {
   const { user, profile, signOut } = useAuth()
 
+  async function handleLogOut() {
+    await signOut()
+    window.location.href = '/'
+  }
+
   return (
     <div className="home-page">
       <header className="home-header">
@@ -16,7 +21,7 @@ export default function Home() {
               {profile?.approved && <Link to="/buyers" className="btn">Buyers</Link>}
               {profile?.approved && <Link to="/sellers" className="btn">Sellers</Link>}
               {profile?.role === 'admin' && <Link to="/admin" className="btn">Admin</Link>}
-              <button onClick={async () => { await signOut(); window.location.href = '/'; }} className="btn btn-secondary">Log Out</button>
+              <button onClick={handleLogOut} className="btn btn-secondary">Log Out</button>
             </>
           ) : (
             <>
