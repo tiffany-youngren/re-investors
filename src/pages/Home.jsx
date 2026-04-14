@@ -16,7 +16,7 @@ export default function Home() {
               {profile?.approved && <Link to="/buyers" className="btn">Buyers</Link>}
               {profile?.approved && <Link to="/sellers" className="btn">Sellers</Link>}
               {profile?.role === 'admin' && <Link to="/admin" className="btn">Admin</Link>}
-              <button onClick={signOut} className="btn btn-secondary">Log Out</button>
+              <button onClick={async () => { await signOut(); window.location.href = '/'; }} className="btn btn-secondary">Log Out</button>
             </>
           ) : (
             <>
