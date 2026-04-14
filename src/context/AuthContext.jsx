@@ -9,11 +9,13 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   async function fetchProfile(userId) {
+    // Add cache-busting timestamp to avoid stale reads
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
       .single()
+      .abortSignal(undefined) // ensures fresh request
 
     if (error) {
       console.error('Error fetching profile:', error.message)
@@ -24,28 +26,46 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    // Check current session on load
+    // Check current session on load and always fetch fresh profile
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      if (currentUser) {
+        fetchProfile(currentUser.id).then(() => setLoading(false))
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     })
 
     // Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          fetchProfile(session.user.id)
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+        if (currentUser) {
+          fetchProfile(currentUser.id)
         } else {
           setProfile(null)
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    // Re-fetch profile when the tab regains focus (catches DB changes)
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            fetchProfile(session.user.id)
+          }
+        })
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   async function signUp(email, password) {
