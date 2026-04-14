@@ -7,6 +7,7 @@ import PendingApproval from './pages/PendingApproval'
 import Buyers from './pages/Buyers'
 import Sellers from './pages/Sellers'
 import AdminDashboard from './pages/AdminDashboard'
+import ResetPassword from './pages/ResetPassword'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/pending" element={<PendingApproval />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             path="/buyers"
             element={

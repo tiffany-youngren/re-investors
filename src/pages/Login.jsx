@@ -1,38 +1,103 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const [searchParams] = useSearchParams()
-  const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'signup')
+  const [mode, setMode] = useState(searchParams.get('mode') || 'login') // login, signup, forgot
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const { signIn, signUp } = useAuth()
+  const { signIn } = useAuth()
   const navigate = useNavigate()
 
-  async function handleSubmit(e) {
+  function switchMode(newMode) {
+    setMode(newMode)
+    setError('')
+    setMessage('')
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault()
+    setError('')
+    setSubmitting(true)
+
+    const { error } = await signIn(email, password)
+    if (error) {
+      if (error.message === 'Invalid login credentials') {
+        setError('Invalid email or password. Please try again.')
+      } else if (error.message === 'Email not confirmed') {
+        setError('Your email is not confirmed yet. Please check your inbox or try signing up again.')
+      } else {
+        setError(error.message)
+      }
+    } else {
+      navigate('/buyers')
+    }
+
+    setSubmitting(false)
+  }
+
+  async function handleSignUp(e) {
     e.preventDefault()
     setError('')
     setMessage('')
     setSubmitting(true)
 
-    if (isSignUp) {
-      const { error } = await signUp(email, password)
-      if (error) {
-        setError(error.message)
-      } else {
-        setMessage('Check your email to confirm your account, then log in.')
+    // Sign up the user
+    const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+
+    if (signUpError) {
+      setError(signUpError.message)
+      setSubmitting(false)
+      return
+    }
+
+    // Auto-confirm the user via our API route
+    if (data.user) {
+      const confirmRes = await fetch('/api/auto-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: data.user.id }),
+      })
+
+      if (!confirmRes.ok) {
+        const { error: confirmError } = await confirmRes.json()
+        setError(confirmError || 'Failed to confirm account. Please try logging in.')
+        setSubmitting(false)
+        return
       }
-    } else {
-      const { error } = await signIn(email, password)
-      if (error) {
-        setError(error.message)
+
+      // Now sign them in automatically
+      const { error: loginError } = await signIn(email, password)
+      if (loginError) {
+        setError('Account created! Please log in with your email and password.')
+        setMode('login')
       } else {
         navigate('/buyers')
       }
+    }
+
+    setSubmitting(false)
+  }
+
+  async function handleForgotPassword(e) {
+    e.preventDefault()
+    setError('')
+    setMessage('')
+    setSubmitting(true)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+
+    if (error) {
+      setError(error.message)
+    } else {
+      setMessage('Check your email for a password reset link.')
     }
 
     setSubmitting(false)
@@ -42,50 +107,114 @@ export default function Login() {
     <div className="auth-page">
       <Link to="/" className="back-link">&larr; Back to Home</Link>
       <div className="auth-card">
-        <h1>{isSignUp ? 'Sign Up' : 'Log In'}</h1>
 
-        <form onSubmit={handleSubmit}>
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+        {/* LOGIN */}
+        {mode === 'login' && (
+          <>
+            <h1>Log In</h1>
+            <form onSubmit={handleLogin}>
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+              {error && <p className="error-msg">{error}</p>}
+              {message && <p className="success-msg">{message}</p>}
+              <button type="submit" disabled={submitting}>
+                {submitting ? 'Please wait...' : 'Log In'}
+              </button>
+            </form>
+            <p className="toggle-msg">
+              <button type="button" className="toggle-btn" onClick={() => switchMode('forgot')}>
+                Forgot password?
+              </button>
+            </p>
+            <p className="toggle-msg">
+              Don't have an account?{' '}
+              <button type="button" className="toggle-btn" onClick={() => switchMode('signup')}>
+                Sign Up
+              </button>
+            </p>
+          </>
+        )}
 
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
+        {/* SIGN UP */}
+        {mode === 'signup' && (
+          <>
+            <h1>Sign Up</h1>
+            <form onSubmit={handleSignUp}>
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+              {error && <p className="error-msg">{error}</p>}
+              {message && <p className="success-msg">{message}</p>}
+              <button type="submit" disabled={submitting}>
+                {submitting ? 'Creating account...' : 'Sign Up'}
+              </button>
+            </form>
+            <p className="toggle-msg">
+              Already have an account?{' '}
+              <button type="button" className="toggle-btn" onClick={() => switchMode('login')}>
+                Log In
+              </button>
+            </p>
+          </>
+        )}
 
-          {error && <p className="error-msg">{error}</p>}
-          {message && <p className="success-msg">{message}</p>}
+        {/* FORGOT PASSWORD */}
+        {mode === 'forgot' && (
+          <>
+            <h1>Reset Password</h1>
+            <p>Enter your email and we'll send you a reset link.</p>
+            <form onSubmit={handleForgotPassword}>
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              {error && <p className="error-msg">{error}</p>}
+              {message && <p className="success-msg">{message}</p>}
+              <button type="submit" disabled={submitting}>
+                {submitting ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </form>
+            <p className="toggle-msg">
+              <button type="button" className="toggle-btn" onClick={() => switchMode('login')}>
+                Back to Log In
+              </button>
+            </p>
+          </>
+        )}
 
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Log In'}
-          </button>
-        </form>
-
-        <p className="toggle-msg">
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button
-            type="button"
-            className="toggle-btn"
-            onClick={() => {
-              setIsSignUp(!isSignUp)
-              setError('')
-              setMessage('')
-            }}
-          >
-            {isSignUp ? 'Log In' : 'Sign Up'}
-          </button>
-        </p>
       </div>
     </div>
   )
