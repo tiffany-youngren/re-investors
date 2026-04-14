@@ -21,7 +21,7 @@ export default function Home() {
           ) : (
             <>
               <Link to="/login" className="btn">Log In</Link>
-              <Link to="/login" className="btn btn-secondary" onClick={() => {}}>Sign Up</Link>
+              <Link to="/login?mode=signup" className="btn btn-secondary">Sign Up</Link>
             </>
           )}
         </nav>
