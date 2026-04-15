@@ -1,0 +1,336 @@
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+const PROPERTY_TYPE_OPTIONS = [
+  { value: 'single-family', label: 'Single-Family' },
+  { value: 'multi-family', label: 'Multi-Family' },
+  { value: 'commercial', label: 'Commercial' },
+]
+
+export default function BuyBoxForm() {
+  const { user } = useAuth()
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const isEditing = Boolean(id)
+
+  const [areas, setAreas] = useState([])
+  const [newCity, setNewCity] = useState('')
+  const [newState, setNewState] = useState('')
+  const [propertyTypes, setPropertyTypes] = useState([])
+  const [yearBuiltMin, setYearBuiltMin] = useState('')
+  const [yearBuiltMax, setYearBuiltMax] = useState('')
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+  const [capRate, setCapRate] = useState('')
+  const [cocReturn, setCocReturn] = useState('')
+  const [noi, setNoi] = useState('')
+  const [description, setDescription] = useState('')
+  const [error, setError] = useState(null)
+
+  // Fetch existing buy box count
+  const { data: buyBoxCount = 0 } = useQuery({
+    queryKey: ['buyBoxCount', user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('buy_boxes')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+      if (error) throw error
+      return count
+    },
+    enabled: !!user,
+  })
+
+  // Fetch existing buy box when editing
+  const { data: existingBox, isLoading: loadingBox } = useQuery({
+    queryKey: ['buyBox', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('buy_boxes')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      return data
+    },
+    enabled: isEditing,
+  })
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (existingBox) {
+      setAreas(existingBox.areas || [])
+      setPropertyTypes(existingBox.property_types || [])
+      setYearBuiltMin(existingBox.year_built_min ?? '')
+      setYearBuiltMax(existingBox.year_built_max ?? '')
+      setPriceMin(existingBox.price_min ?? '')
+      setPriceMax(existingBox.price_max ?? '')
+      setCapRate(existingBox.cap_rate ?? '')
+      setCocReturn(existingBox.coc_return ?? '')
+      setNoi(existingBox.noi ?? '')
+      setDescription(existingBox.description ?? '')
+    }
+  }, [existingBox])
+
+  // Check ownership when editing
+  if (isEditing && existingBox && existingBox.user_id !== user?.id) {
+    return (
+      <div className="buybox-form-page">
+        <h1>Not Authorized</h1>
+        <p>You can only edit your own buy boxes.</p>
+      </div>
+    )
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: async (buyBoxData) => {
+      if (isEditing) {
+        const { error } = await supabase
+          .from('buy_boxes')
+          .update(buyBoxData)
+          .eq('id', id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('buy_boxes')
+          .insert({ ...buyBoxData, user_id: user.id })
+        if (error) throw error
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['buyBoxes'] })
+      queryClient.invalidateQueries({ queryKey: ['buyBoxCount'] })
+      navigate('/buy-boxes')
+    },
+    onError: (err) => {
+      setError(err.message)
+    },
+  })
+
+  function addArea() {
+    const city = newCity.trim()
+    const state = newState.trim()
+    if (!city || !state) return
+    setAreas([...areas, { city, state }])
+    setNewCity('')
+    setNewState('')
+  }
+
+  function removeArea(index) {
+    setAreas(areas.filter((_, i) => i !== index))
+  }
+
+  function togglePropertyType(type) {
+    setPropertyTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    )
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    setError(null)
+
+    if (areas.length === 0) {
+      setError('Add at least one area.')
+      return
+    }
+    if (propertyTypes.length === 0) {
+      setError('Select at least one property type.')
+      return
+    }
+    if (!priceMin || !priceMax) {
+      setError('Price range (min and max) is required.')
+      return
+    }
+    if (Number(priceMin) > Number(priceMax)) {
+      setError('Min price cannot be greater than max price.')
+      return
+    }
+
+    saveMutation.mutate({
+      areas,
+      property_types: propertyTypes,
+      year_built_min: yearBuiltMin ? Number(yearBuiltMin) : null,
+      year_built_max: yearBuiltMax ? Number(yearBuiltMax) : null,
+      price_min: Number(priceMin),
+      price_max: Number(priceMax),
+      cap_rate: capRate ? Number(capRate) : null,
+      coc_return: cocReturn ? Number(cocReturn) : null,
+      noi: noi ? Number(noi) : null,
+      description: description.trim() || null,
+    })
+  }
+
+  // Block new buy box if already at 4
+  if (!isEditing && buyBoxCount >= 4) {
+    return (
+      <div className="buybox-form-page">
+        <h1>Buy Box Limit Reached</h1>
+        <div className="form-card">
+          <p>You already have 4 buy boxes, which is the maximum. Edit or delete an existing one before adding another.</p>
+          <button className="btn" style={{ marginTop: 16 }} onClick={() => navigate('/buy-boxes')}>
+            Back to Buy Boxes
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (isEditing && loadingBox) {
+    return <div className="loading">Loading...</div>
+  }
+
+  return (
+    <div className="buybox-form-page">
+      <h1>{isEditing ? 'Edit Buy Box' : 'New Buy Box'}</h1>
+
+      <div className="form-card">
+        <form onSubmit={handleSubmit}>
+          {/* Areas */}
+          <label>Areas Looking</label>
+          <div className="investment-areas">
+            {areas.map((area, i) => (
+              <div key={i} className="investment-area-item">
+                <span>{area.city}, {area.state}</span>
+                <button type="button" className="remove-img-btn" onClick={() => removeArea(i)}>Remove</button>
+              </div>
+            ))}
+          </div>
+          <div className="form-row investment-area-add">
+            <div className="form-field">
+              <input
+                type="text"
+                placeholder="City"
+                value={newCity}
+                onChange={(e) => setNewCity(e.target.value)}
+              />
+            </div>
+            <div className="form-field">
+              <input
+                type="text"
+                placeholder="State"
+                value={newState}
+                onChange={(e) => setNewState(e.target.value)}
+              />
+            </div>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={addArea}>Add</button>
+          </div>
+
+          {/* Property Types */}
+          <fieldset className="financing-fieldset">
+            <legend>Property Types</legend>
+            {PROPERTY_TYPE_OPTIONS.map((opt) => (
+              <label key={opt.value} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={propertyTypes.includes(opt.value)}
+                  onChange={() => togglePropertyType(opt.value)}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </fieldset>
+
+          {/* Year Built Range */}
+          <label>Year Built Range (optional)</label>
+          <div className="form-row">
+            <div className="form-field">
+              <input
+                type="number"
+                placeholder="Min year"
+                value={yearBuiltMin}
+                onChange={(e) => setYearBuiltMin(e.target.value)}
+              />
+            </div>
+            <div className="form-field">
+              <input
+                type="number"
+                placeholder="Max year"
+                value={yearBuiltMax}
+                onChange={(e) => setYearBuiltMax(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Price Range */}
+          <label>Price Range</label>
+          <div className="form-row">
+            <div className="form-field">
+              <input
+                type="number"
+                placeholder="Min price"
+                value={priceMin}
+                onChange={(e) => setPriceMin(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-field">
+              <input
+                type="number"
+                placeholder="Max price"
+                value={priceMax}
+                onChange={(e) => setPriceMax(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Expected Returns */}
+          <label>Expected Returns (optional)</label>
+          <div className="form-row">
+            <div className="form-field">
+              <label style={{ fontSize: '0.85rem' }}>Cap Rate %</label>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="e.g. 8.5"
+                value={capRate}
+                onChange={(e) => setCapRate(e.target.value)}
+              />
+            </div>
+            <div className="form-field">
+              <label style={{ fontSize: '0.85rem' }}>CoC Return %</label>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="e.g. 12"
+                value={cocReturn}
+                onChange={(e) => setCocReturn(e.target.value)}
+              />
+            </div>
+            <div className="form-field">
+              <label style={{ fontSize: '0.85rem' }}>NOI $</label>
+              <input
+                type="number"
+                placeholder="e.g. 24000"
+                value={noi}
+                onChange={(e) => setNoi(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <label>Description</label>
+          <textarea
+            rows={3}
+            maxLength={300}
+            placeholder="2-3 sentences about what you're looking for"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <p className="field-note">{description.length}/300 characters</p>
+
+          {error && <p className="error-msg">{error}</p>}
+
+          <button type="submit" className="btn" disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? 'Saving...' : isEditing ? 'Update Buy Box' : 'Save Buy Box'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}

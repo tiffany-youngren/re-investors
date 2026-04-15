@@ -7,6 +7,8 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import PendingApproval from './pages/PendingApproval'
 import Buyers from './pages/Buyers'
+import BuyBoxes from './pages/BuyBoxes'
+import BuyBoxForm from './pages/BuyBoxForm'
 import Sellers from './pages/Sellers'
 import AdminDashboard from './pages/AdminDashboard'
 import Profile from './pages/Profile'
@@ -41,6 +43,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Buyers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/buy-boxes"
+                element={
+                  <ProtectedRoute>
+                    <BuyBoxes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/buy-box/new"
+                element={
+                  <ProtectedRoute>
+                    <BuyBoxForm />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/buy-box/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <BuyBoxForm />
                   </ProtectedRoute>
                 }
               />
