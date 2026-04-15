@@ -39,7 +39,6 @@ export default function Navbar() {
             <>
               <Link to="/buyers" className={isActive('/buyers')} onClick={() => setMenuOpen(false)}>For Sale</Link>
               <Link to="/buy-boxes" className={isActive('/buy-boxes')} onClick={() => setMenuOpen(false)}>Buy Boxes</Link>
-              <Link to="/sellers" className={isActive('/sellers')} onClick={() => setMenuOpen(false)}>Sellers</Link>
               {profile?.role === 'admin' && (
                 <Link to="/admin" className={isActive('/admin')} onClick={() => setMenuOpen(false)}>Admin</Link>
               )}

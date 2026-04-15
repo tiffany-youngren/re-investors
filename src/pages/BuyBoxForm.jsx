@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -11,26 +11,69 @@ const PROPERTY_TYPE_OPTIONS = [
   { value: 'commercial', label: 'Commercial' },
 ]
 
+function getDraftKey(id) {
+  return id ? `draft-buybox-form-${id}` : 'draft-buybox-form'
+}
+
+function loadDraft(key) {
+  try {
+    const raw = sessionStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function saveDraft(key, data) {
+  try { sessionStorage.setItem(key, JSON.stringify(data)) } catch {}
+}
+
+function clearDraft(key) {
+  try { sessionStorage.removeItem(key) } catch {}
+}
+
 export default function BuyBoxForm() {
   const { user } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isEditing = Boolean(id)
+  const draftKey = getDraftKey(id)
+  const draft = loadDraft(draftKey)
 
-  const [areas, setAreas] = useState([])
-  const [newCity, setNewCity] = useState('')
-  const [newState, setNewState] = useState('')
-  const [propertyTypes, setPropertyTypes] = useState([])
-  const [yearBuiltMin, setYearBuiltMin] = useState('')
-  const [yearBuiltMax, setYearBuiltMax] = useState('')
-  const [priceMin, setPriceMin] = useState('')
-  const [priceMax, setPriceMax] = useState('')
-  const [capRate, setCapRate] = useState('')
-  const [cocReturn, setCocReturn] = useState('')
-  const [noi, setNoi] = useState('')
-  const [description, setDescription] = useState('')
+  const [areas, setAreas] = useState(draft?.areas || [])
+  const [newCity, setNewCity] = useState(draft?.newCity || '')
+  const [newState, setNewState] = useState(draft?.newState || '')
+  const [propertyTypes, setPropertyTypes] = useState(draft?.propertyTypes || [])
+  const [yearBuiltMin, setYearBuiltMin] = useState(draft?.yearBuiltMin ?? '')
+  const [yearBuiltMax, setYearBuiltMax] = useState(draft?.yearBuiltMax ?? '')
+  const [priceMin, setPriceMin] = useState(draft?.priceMin ?? '')
+  const [priceMax, setPriceMax] = useState(draft?.priceMax ?? '')
+  const [capRate, setCapRate] = useState(draft?.capRate ?? '')
+  const [cocReturn, setCocReturn] = useState(draft?.cocReturn ?? '')
+  const [noi, setNoi] = useState(draft?.noi ?? '')
+  const [description, setDescription] = useState(draft?.description ?? '')
   const [error, setError] = useState(null)
+  const [prefilled, setPrefilled] = useState(false)
+  const debounceRef = useRef(null)
+
+  // Debounced draft save
+  const flushDraft = useCallback(() => {
+    saveDraft(draftKey, {
+      areas, newCity, newState, propertyTypes,
+      yearBuiltMin, yearBuiltMax, priceMin, priceMax,
+      capRate, cocReturn, noi, description,
+    })
+  }, [draftKey, areas, newCity, newState, propertyTypes, yearBuiltMin, yearBuiltMax, priceMin, priceMax, capRate, cocReturn, noi, description])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(flushDraft, 500)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [flushDraft])
+
+  // Flush on unmount
+  useEffect(() => {
+    return () => flushDraft()
+  }, [flushDraft])
 
   // Fetch existing buy box count
   const { data: buyBoxCount = 0 } = useQuery({
@@ -61,9 +104,9 @@ export default function BuyBoxForm() {
     enabled: isEditing,
   })
 
-  // Pre-fill form when editing
+  // Pre-fill form when editing (only if no draft exists)
   useEffect(() => {
-    if (existingBox) {
+    if (existingBox && !prefilled && !draft) {
       setAreas(existingBox.areas_looking || [])
       setPropertyTypes(existingBox.property_types || [])
       setYearBuiltMin(existingBox.year_built_min ?? '')
@@ -74,8 +117,9 @@ export default function BuyBoxForm() {
       setCocReturn(existingBox.coc_return ?? '')
       setNoi(existingBox.noi ?? '')
       setDescription(existingBox.description ?? '')
+      setPrefilled(true)
     }
-  }, [existingBox])
+  }, [existingBox, prefilled, draft])
 
   // Check ownership when editing
   if (isEditing && existingBox && existingBox.user_id !== user?.id) {
@@ -103,6 +147,7 @@ export default function BuyBoxForm() {
       }
     },
     onSuccess: () => {
+      clearDraft(draftKey)
       queryClient.invalidateQueries({ queryKey: ['buyBoxes'] })
       queryClient.invalidateQueries({ queryKey: ['buyBoxCount'] })
       navigate('/buy-boxes')
@@ -202,7 +247,7 @@ export default function BuyBoxForm() {
             ))}
           </div>
           <div className="form-row investment-area-add">
-            <div className="form-field">
+            <div className="form-field" style={{ flex: 3 }}>
               <input
                 type="text"
                 placeholder="City"
@@ -210,7 +255,7 @@ export default function BuyBoxForm() {
                 onChange={(e) => setNewCity(e.target.value)}
               />
             </div>
-            <div className="form-field">
+            <div className="form-field" style={{ flex: 1 }}>
               <select value={newState} onChange={(e) => setNewState(e.target.value)}>
                 <option value="">State</option>
                 {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -235,7 +280,7 @@ export default function BuyBoxForm() {
           </fieldset>
 
           {/* Year Built Range */}
-          <label>Year Built Range (optional)</label>
+          <label>Year Built Range</label>
           <div className="form-row">
             <div className="form-field">
               <input
@@ -261,7 +306,7 @@ export default function BuyBoxForm() {
             <div className="form-field">
               <input
                 type="number"
-                placeholder="Min price (optional)"
+                placeholder="Min price"
                 value={priceMin}
                 onChange={(e) => setPriceMin(e.target.value)}
               />
@@ -269,7 +314,7 @@ export default function BuyBoxForm() {
             <div className="form-field">
               <input
                 type="number"
-                placeholder="Max price"
+                placeholder="Max price *"
                 value={priceMax}
                 onChange={(e) => setPriceMax(e.target.value)}
                 required
@@ -278,7 +323,7 @@ export default function BuyBoxForm() {
           </div>
 
           {/* Expected Returns */}
-          <label>Expected Returns (optional)</label>
+          <label>Expected Returns</label>
           <div className="form-row">
             <div className="form-field">
               <label style={{ fontSize: '0.85rem' }}>Cap Rate %</label>

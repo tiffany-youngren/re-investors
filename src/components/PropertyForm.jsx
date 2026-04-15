@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { US_STATES } from '../lib/utils'
 
 const FINANCING_OPTIONS = [
   'Seller financing',
@@ -62,25 +63,67 @@ async function resizeImage(file, maxWidth = 1200) {
   })
 }
 
+const DRAFT_KEY = 'draft-property-form'
+
+function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function saveDraftToStorage(data) {
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data)) } catch {}
+}
+
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY) } catch {}
+}
+
 export default function PropertyForm({ onSaved }) {
   const { user, profile } = useAuth()
   const isLicensed = profile?.license_status === 'licensed'
+  const draft = loadDraft()
 
-  const [address, setAddress] = useState('')
-  const [price, setPrice] = useState('')
-  const [sellerType, setSellerType] = useState(isLicensed ? '' : 'selling own property')
-  const [propertyType, setPropertyType] = useState('')
-  const [numUnits, setNumUnits] = useState('')
-  const [occupancy, setOccupancy] = useState('')
-  const [condition, setCondition] = useState('')
-  const [financing, setFinancing] = useState([])
-  const [description, setDescription] = useState('')
-  const [estimatedArv, setEstimatedArv] = useState('')
-  const [virtualTourUrl, setVirtualTourUrl] = useState('')
+  const [street, setStreet] = useState(draft?.street || '')
+  const [city, setCity] = useState(draft?.city || '')
+  const [addrState, setAddrState] = useState(draft?.addrState || '')
+  const [zip, setZip] = useState(draft?.zip || '')
+  const [price, setPrice] = useState(draft?.price || '')
+  const [sellerType, setSellerType] = useState(draft?.sellerType || (isLicensed ? '' : 'selling own property'))
+  const [propertyType, setPropertyType] = useState(draft?.propertyType || '')
+  const [numUnits, setNumUnits] = useState(draft?.numUnits || '')
+  const [occupancy, setOccupancy] = useState(draft?.occupancy || '')
+  const [condition, setCondition] = useState(draft?.condition || '')
+  const [financing, setFinancing] = useState(draft?.financing || [])
+  const [description, setDescription] = useState(draft?.description || '')
+  const [estimatedArv, setEstimatedArv] = useState(draft?.estimatedArv || '')
+  const [virtualTourUrl, setVirtualTourUrl] = useState(draft?.virtualTourUrl || '')
   const [images, setImages] = useState([])
   const [error, setError] = useState('')
   const [fhaWarning, setFhaWarning] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const debounceRef = useRef(null)
+
+  // Debounced draft save (images excluded — can't serialize File objects)
+  const flushDraft = useCallback(() => {
+    saveDraftToStorage({
+      street, city, addrState, zip, price, sellerType, propertyType,
+      numUnits, occupancy, condition, financing, description,
+      estimatedArv, virtualTourUrl,
+    })
+  }, [street, city, addrState, zip, price, sellerType, propertyType, numUnits, occupancy, condition, financing, description, estimatedArv, virtualTourUrl])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(flushDraft, 500)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [flushDraft])
+
+  // Flush on unmount
+  useEffect(() => {
+    return () => flushDraft()
+  }, [flushDraft])
 
   function handleFinancingChange(option) {
     setFinancing((prev) =>
@@ -119,6 +162,11 @@ export default function PropertyForm({ onSaved }) {
     e.preventDefault()
     setError('')
 
+    if (!street.trim() || !city.trim() || !addrState || !zip.trim()) {
+      setError('All address fields are required.')
+      return
+    }
+
     if (images.length < 1) {
       setError('At least 1 image is required.')
       return
@@ -138,10 +186,12 @@ export default function PropertyForm({ onSaved }) {
 
     setSubmitting(true)
 
+    const fullAddress = `${street.trim()}, ${city.trim()}, ${addrState} ${zip.trim()}`
+
     // Insert the property record
     const propertyData = {
       user_id: user.id,
-      address: address.trim(),
+      address: fullAddress,
       price: parseFloat(price),
       seller_type: sellerType,
       property_type: propertyType,
@@ -194,8 +244,12 @@ export default function PropertyForm({ onSaved }) {
       })
     }
 
-    // Reset form
-    setAddress('')
+    // Clear draft and reset form
+    clearDraft()
+    setStreet('')
+    setCity('')
+    setAddrState('')
+    setZip('')
     setPrice('')
     setSellerType(isLicensed ? '' : 'selling own property')
     setPropertyType('')
@@ -216,16 +270,53 @@ export default function PropertyForm({ onSaved }) {
     <div className="form-card">
       <h2>Add a Property Listing</h2>
       <form onSubmit={handleSubmit}>
-        <label htmlFor="address">Address</label>
+        <label htmlFor="street">Street Address *</label>
         <input
-          id="address"
+          id="street"
           type="text"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          value={street}
+          onChange={(e) => setStreet(e.target.value)}
+          placeholder="123 Main St"
           required
         />
 
-        <label htmlFor="price">Price ($)</label>
+        <div className="form-row">
+          <div className="form-field" style={{ flex: 3 }}>
+            <label htmlFor="addrCity">City *</label>
+            <input
+              id="addrCity"
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              required
+            />
+          </div>
+          <div className="form-field" style={{ flex: 1 }}>
+            <label htmlFor="addrState">State *</label>
+            <select
+              id="addrState"
+              value={addrState}
+              onChange={(e) => setAddrState(e.target.value)}
+              required
+            >
+              <option value="">--</option>
+              {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="form-field" style={{ flex: 1 }}>
+            <label htmlFor="addrZip">Zip *</label>
+            <input
+              id="addrZip"
+              type="text"
+              value={zip}
+              onChange={(e) => setZip(e.target.value)}
+              maxLength={10}
+              required
+            />
+          </div>
+        </div>
+
+        <label htmlFor="price">Price ($) *</label>
         <input
           id="price"
           type="number"
@@ -236,7 +327,7 @@ export default function PropertyForm({ onSaved }) {
           required
         />
 
-        <label htmlFor="sellerType">Seller Type</label>
+        <label htmlFor="sellerType">Seller Type *</label>
         {isLicensed ? (
           <select
             id="sellerType"
@@ -258,7 +349,7 @@ export default function PropertyForm({ onSaved }) {
           <p className="field-note">Unlicensed members can only list their own properties.</p>
         )}
 
-        <label htmlFor="propertyType">Property Type</label>
+        <label htmlFor="propertyType">Property Type *</label>
         <select
           id="propertyType"
           value={propertyType}
@@ -273,7 +364,7 @@ export default function PropertyForm({ onSaved }) {
 
         {propertyType === 'multi-family' && (
           <>
-            <label htmlFor="numUnits">Number of Units</label>
+            <label htmlFor="numUnits">Number of Units *</label>
             <input
               id="numUnits"
               type="number"
@@ -285,7 +376,7 @@ export default function PropertyForm({ onSaved }) {
           </>
         )}
 
-        <label htmlFor="occupancy">Occupancy Status</label>
+        <label htmlFor="occupancy">Occupancy Status *</label>
         <select
           id="occupancy"
           value={occupancy}
@@ -298,7 +389,7 @@ export default function PropertyForm({ onSaved }) {
           <option value="owner-occupied">Owner-Occupied</option>
         </select>
 
-        <label htmlFor="condition">Condition</label>
+        <label htmlFor="condition">Condition *</label>
         <select
           id="condition"
           value={condition}
@@ -324,7 +415,7 @@ export default function PropertyForm({ onSaved }) {
           ))}
         </fieldset>
 
-        <label htmlFor="description">Description</label>
+        <label htmlFor="description">Description *</label>
         <textarea
           id="description"
           rows={5}
@@ -337,7 +428,7 @@ export default function PropertyForm({ onSaved }) {
         </p>
         {fhaWarning && <p className="warning-msg">{fhaWarning}</p>}
 
-        <label htmlFor="estimatedArv">Estimated ARV (optional)</label>
+        <label htmlFor="estimatedArv">Estimated ARV</label>
         <input
           id="estimatedArv"
           type="number"
@@ -347,7 +438,7 @@ export default function PropertyForm({ onSaved }) {
           onChange={(e) => setEstimatedArv(e.target.value)}
         />
 
-        <label htmlFor="virtualTourUrl">Virtual Tour URL (optional)</label>
+        <label htmlFor="virtualTourUrl">Virtual Tour URL</label>
         <input
           id="virtualTourUrl"
           type="url"
@@ -356,7 +447,7 @@ export default function PropertyForm({ onSaved }) {
           placeholder="https://..."
         />
 
-        <label>Property Images (1-10)</label>
+        <label>Property Images (1-10) *</label>
         <input
           type="file"
           accept="image/*"

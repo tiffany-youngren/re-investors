@@ -257,11 +257,15 @@ export default function Profile() {
               </div>
             ))}
             <div className="form-row investment-area-add">
-              <input type="text" placeholder="City" value={newAreaCity} onChange={(e) => setNewAreaCity(e.target.value)} />
-              <select value={newAreaState} onChange={(e) => setNewAreaState(e.target.value)}>
-                <option value="">State</option>
-                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <div className="form-field" style={{ flex: 3 }}>
+                <input type="text" placeholder="City" value={newAreaCity} onChange={(e) => setNewAreaCity(e.target.value)} />
+              </div>
+              <div className="form-field" style={{ flex: 1 }}>
+                <select value={newAreaState} onChange={(e) => setNewAreaState(e.target.value)}>
+                  <option value="">State</option>
+                  {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
               <button type="button" className="btn btn-sm btn-secondary" onClick={addInvestmentArea}>Add</button>
             </div>
           </div>
