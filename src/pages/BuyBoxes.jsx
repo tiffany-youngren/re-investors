@@ -6,7 +6,8 @@ import { useQuery } from '@tanstack/react-query'
 import { displayPhone } from '../lib/utils'
 
 export default function BuyBoxes() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const isMemberOrAdmin = profile?.role === 'member' || profile?.role === 'admin'
   const [selectedBox, setSelectedBox] = useState(null)
 
   const { data: buyBoxes = [], isLoading } = useQuery({
@@ -33,7 +34,7 @@ export default function BuyBoxes() {
     <div className="buyboxes-page">
       <div className="buyboxes-header">
         <h1>Buy Boxes</h1>
-        {user && (
+        {isMemberOrAdmin && (
           <Link to="/buy-box/new" className="btn">Add Buy Box</Link>
         )}
       </div>

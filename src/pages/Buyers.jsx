@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import PropertyCard from '../components/PropertyCard'
 
 export default function Buyers() {
+  const { profile } = useAuth()
+  const isMemberOrAdmin = profile?.role === 'member' || profile?.role === 'admin'
   const [properties, setProperties] = useState([])
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState('')
@@ -35,7 +39,12 @@ export default function Buyers() {
 
   return (
     <div className="buyers-page">
-      <h1>For Sale</h1>
+      <div className="buyboxes-header">
+        <h1>For Sale</h1>
+        {isMemberOrAdmin && (
+          <Link to="/sellers" className="btn">Add Property</Link>
+        )}
+      </div>
 
       {/* Filters */}
       <div className="filters-bar">
