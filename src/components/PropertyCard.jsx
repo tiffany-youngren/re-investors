@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { displayPhone } from '../lib/utils'
 
 export default function PropertyCard({ property }) {
   const [expanded, setExpanded] = useState(false)
@@ -97,7 +98,7 @@ export default function PropertyCard({ property }) {
             <div className="pc-seller">
               <h4>Listed by</h4>
               <p>{[seller.first_name, seller.last_name].filter(Boolean).join(' ') || 'Unknown'}</p>
-              {seller.phone && <p>{seller.phone}</p>}
+              {seller.phone && <p>{displayPhone(seller.phone)}</p>}
               {seller.brokerage_name && (
                 <p className="pc-brokerage">{seller.brokerage_name}</p>
               )}

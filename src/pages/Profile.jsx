@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { US_STATES, formatPhone, stripPhone } from '../lib/utils'
 
 async function resizeAvatar(file, maxSize = 300) {
   return new Promise((resolve) => {
@@ -35,7 +36,7 @@ export default function Profile() {
   // Form state
   const [firstName, setFirstName] = useState(profile?.first_name || '')
   const [lastName, setLastName] = useState(profile?.last_name || '')
-  const [phone, setPhone] = useState(profile?.phone || '')
+  const [phone, setPhone] = useState(formatPhone(profile?.phone || ''))
   const [city, setCity] = useState(profile?.city || '')
   const [state, setState] = useState(profile?.state || '')
   const [licenseStatus, setLicenseStatus] = useState(profile?.license_status || '')
@@ -132,7 +133,7 @@ export default function Profile() {
     const profileData = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      phone: phone.trim(),
+      phone: stripPhone(phone),
       city: city.trim() || null,
       state: state.trim() || null,
       license_status: licenseStatus,
@@ -208,7 +209,7 @@ export default function Profile() {
           <input id="profileEmail" type="email" value={user?.email || ''} disabled />
 
           <label htmlFor="profilePhone">Phone</label>
-          <input id="profilePhone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+          <input id="profilePhone" type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(xxx) xxx-xxxx" required />
 
           <div className="form-row">
             <div className="form-field">
@@ -217,7 +218,10 @@ export default function Profile() {
             </div>
             <div className="form-field">
               <label htmlFor="profileState">State</label>
-              <input id="profileState" type="text" value={state} onChange={(e) => setState(e.target.value)} />
+              <select id="profileState" value={state} onChange={(e) => setState(e.target.value)}>
+                <option value="">Select...</option>
+                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
           </div>
 
@@ -254,7 +258,10 @@ export default function Profile() {
             ))}
             <div className="form-row investment-area-add">
               <input type="text" placeholder="City" value={newAreaCity} onChange={(e) => setNewAreaCity(e.target.value)} />
-              <input type="text" placeholder="State" value={newAreaState} onChange={(e) => setNewAreaState(e.target.value)} />
+              <select value={newAreaState} onChange={(e) => setNewAreaState(e.target.value)}>
+                <option value="">State</option>
+                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
               <button type="button" className="btn btn-sm btn-secondary" onClick={addInvestmentArea}>Add</button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { displayPhone } from '../lib/utils'
 
 async function getAuthToken() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -140,7 +141,7 @@ export default function AdminDashboard() {
             <div className="admin-card-info">
               <strong>{[u.first_name, u.last_name].filter(Boolean).join(' ') || 'No name'}</strong>
               <span>{u.email}</span>
-              {u.phone && <span>{u.phone}</span>}
+              {u.phone && <span>{displayPhone(u.phone)}</span>}
               <span className="admin-badge badge-pending">Pending</span>
             </div>
             <div className="admin-card-actions">
@@ -173,7 +174,7 @@ export default function AdminDashboard() {
             <div className="admin-card-info">
               <strong>{[u.first_name, u.last_name].filter(Boolean).join(' ') || 'No name'}</strong>
               <span>{u.email}</span>
-              {u.phone && <span>{u.phone}</span>}
+              {u.phone && <span>{displayPhone(u.phone)}</span>}
               <span>{u.license_status || 'No license info'}</span>
               {u.brokerage_name && <span>{u.brokerage_name}</span>}
               <span className={`admin-badge ${u.role === 'admin' ? 'badge-admin' : 'badge-member'}`}>

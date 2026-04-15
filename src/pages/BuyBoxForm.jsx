@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { US_STATES } from '../lib/utils'
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: 'single-family', label: 'Single-Family' },
@@ -63,7 +64,7 @@ export default function BuyBoxForm() {
   // Pre-fill form when editing
   useEffect(() => {
     if (existingBox) {
-      setAreas(existingBox.areas || [])
+      setAreas(existingBox.areas_looking || [])
       setPropertyTypes(existingBox.property_types || [])
       setYearBuiltMin(existingBox.year_built_min ?? '')
       setYearBuiltMax(existingBox.year_built_max ?? '')
@@ -152,7 +153,7 @@ export default function BuyBoxForm() {
     }
 
     saveMutation.mutate({
-      areas,
+      areas_looking: areas,
       property_types: propertyTypes,
       year_built_min: yearBuiltMin ? Number(yearBuiltMin) : null,
       year_built_max: yearBuiltMax ? Number(yearBuiltMax) : null,
@@ -210,12 +211,10 @@ export default function BuyBoxForm() {
               />
             </div>
             <div className="form-field">
-              <input
-                type="text"
-                placeholder="State"
-                value={newState}
-                onChange={(e) => setNewState(e.target.value)}
-              />
+              <select value={newState} onChange={(e) => setNewState(e.target.value)}>
+                <option value="">State</option>
+                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <button type="button" className="btn btn-secondary btn-sm" onClick={addArea}>Add</button>
           </div>

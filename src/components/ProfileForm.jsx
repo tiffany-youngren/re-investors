@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { formatPhone, stripPhone } from '../lib/utils'
 
 export default function ProfileForm() {
   const { user, profile, refreshProfile } = useAuth()
   const [firstName, setFirstName] = useState(profile?.first_name || '')
   const [lastName, setLastName] = useState(profile?.last_name || '')
-  const [phone, setPhone] = useState(profile?.phone || '')
+  const [phone, setPhone] = useState(formatPhone(profile?.phone || ''))
   const [licenseStatus, setLicenseStatus] = useState(profile?.license_status || '')
   const [brokerageName, setBrokerageName] = useState(profile?.brokerage_name || '')
   const [error, setError] = useState('')
@@ -28,7 +29,7 @@ export default function ProfileForm() {
       email: user.email,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      phone: phone.trim(),
+      phone: stripPhone(phone),
       license_status: licenseStatus,
       brokerage_name: licenseStatus === 'licensed' ? brokerageName.trim() : null,
     }
@@ -83,7 +84,8 @@ export default function ProfileForm() {
             id="phone"
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            placeholder="(xxx) xxx-xxxx"
             required
           />
 

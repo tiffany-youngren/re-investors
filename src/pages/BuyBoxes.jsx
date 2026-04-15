@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useQuery } from '@tanstack/react-query'
+import { displayPhone } from '../lib/utils'
 
 export default function BuyBoxes() {
   const { user } = useAuth()
@@ -72,13 +73,13 @@ export default function BuyBoxes() {
             </div>
             <div className="buybox-card-body">
               <p className="buybox-areas">
-                {(box.areas || []).map((a) => `${a.city}, ${a.state}`).join(' · ')}
+                {(box.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ')}
               </p>
               <p className="buybox-types">
                 {(box.property_types || []).map((t) => t.replace('-', ' ')).join(', ')}
               </p>
               <p className="buybox-price-range">
-                {formatPrice(box.price_min)} – {formatPrice(box.price_max)}
+                {box.price_min ? formatPrice(box.price_min) + ' – ' : 'Up to '}{formatPrice(box.price_max)}
               </p>
             </div>
           </div>
@@ -107,7 +108,7 @@ export default function BuyBoxes() {
                   {selectedBox.profiles?.first_name} {selectedBox.profiles?.last_name}
                 </h2>
                 {selectedBox.profiles?.phone && (
-                  <p style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>{selectedBox.profiles.phone}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>{displayPhone(selectedBox.profiles.phone)}</p>
                 )}
                 {selectedBox.profiles?.email && (
                   <p style={{ margin: '2px 0 0', fontSize: '0.9rem' }}>
@@ -121,7 +122,7 @@ export default function BuyBoxes() {
 
             <div className="buybox-modal-section">
               <h3>Areas Looking</h3>
-              <p>{(selectedBox.areas || []).map((a) => `${a.city}, ${a.state}`).join(' · ')}</p>
+              <p>{(selectedBox.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ')}</p>
             </div>
 
             <div className="buybox-modal-section">
@@ -146,7 +147,7 @@ export default function BuyBoxes() {
 
             <div className="buybox-modal-section">
               <h3>Price Range</h3>
-              <p>{formatPrice(selectedBox.price_min)} – {formatPrice(selectedBox.price_max)}</p>
+              <p>{selectedBox.price_min ? formatPrice(selectedBox.price_min) + ' – ' : 'Up to '}{formatPrice(selectedBox.price_max)}</p>
             </div>
 
             {(selectedBox.cap_rate || selectedBox.coc_return || selectedBox.noi) && (
