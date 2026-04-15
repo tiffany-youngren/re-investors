@@ -30,6 +30,14 @@ export function AuthProvider({ children }) {
   const [roleLoading, setRoleLoading] = useState(false)
   const fetchInProgress = useRef(false)
   const debounceTimer = useRef(null)
+  const profileRef = useRef(null)
+  const userRef = useRef(null)
+
+  // Keep refs in sync with state so the onAuthStateChange callback
+  // always sees current values (the effect has [] deps, so without
+  // refs the callback captures stale initial values)
+  useEffect(() => { profileRef.current = profile }, [profile])
+  useEffect(() => { userRef.current = user }, [user])
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -40,6 +48,15 @@ export function AuthProvider({ children }) {
         if (!currentSession?.user) {
           setProfile(null)
           setProfileError(null)
+          setLoading(false)
+          return
+        }
+
+        // Skip profile re-fetch on token refresh if we already have a profile
+        // for this user. TOKEN_REFRESHED fires when switching browser tabs,
+        // and re-fetching causes roleLoading=true which unmounts forms via
+        // ProtectedRoute, losing all entered data.
+        if (event === 'TOKEN_REFRESHED' && profileRef.current && userRef.current?.id === currentSession.user.id) {
           setLoading(false)
           return
         }

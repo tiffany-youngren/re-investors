@@ -142,11 +142,11 @@ export default function BuyBoxForm() {
       setError('Select at least one property type.')
       return
     }
-    if (!priceMin || !priceMax) {
-      setError('Price range (min and max) is required.')
+    if (!priceMax) {
+      setError('Maximum price is required.')
       return
     }
-    if (Number(priceMin) > Number(priceMax)) {
+    if (priceMin && Number(priceMin) > Number(priceMax)) {
       setError('Min price cannot be greater than max price.')
       return
     }
@@ -156,7 +156,7 @@ export default function BuyBoxForm() {
       property_types: propertyTypes,
       year_built_min: yearBuiltMin ? Number(yearBuiltMin) : null,
       year_built_max: yearBuiltMax ? Number(yearBuiltMax) : null,
-      price_min: Number(priceMin),
+      price_min: priceMin ? Number(priceMin) : null,
       price_max: Number(priceMax),
       cap_rate: capRate ? Number(capRate) : null,
       coc_return: cocReturn ? Number(cocReturn) : null,
@@ -262,10 +262,9 @@ export default function BuyBoxForm() {
             <div className="form-field">
               <input
                 type="number"
-                placeholder="Min price"
+                placeholder="Min price (optional)"
                 value={priceMin}
                 onChange={(e) => setPriceMin(e.target.value)}
-                required
               />
             </div>
             <div className="form-field">
