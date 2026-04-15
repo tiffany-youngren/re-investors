@@ -25,7 +25,7 @@ export default function Sellers() {
     const { data, error } = await supabase
       .from('properties')
       .select('*, property_images(*)')
-      .eq('user_id', user.id)
+      .eq('profile_id', profile.id)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -37,8 +37,8 @@ export default function Sellers() {
   }
 
   useEffect(() => {
-    if (user) fetchListings()
-  }, [user])
+    if (profile?.id) fetchListings()
+  }, [profile?.id])
 
   if (!isProfileComplete(profile)) {
     return (

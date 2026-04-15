@@ -270,7 +270,7 @@ export default function PropertyForm({ onSaved }) {
     const fullAddress = `${street.trim()}, ${city.trim()}, ${addrState} ${zip.trim()}`
 
     const propertyData = {
-      user_id: user.id,
+      profile_id: profile.id,
       address: fullAddress,
       price: price ? parseFloat(price) : null,
       seller_type: sellerType || null,

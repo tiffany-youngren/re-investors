@@ -51,17 +51,17 @@ export default function Profile() {
 
   // Fetch user's properties
   const { data: properties = [] } = useQuery({
-    queryKey: ['my-properties', user?.id],
+    queryKey: ['my-properties', profile?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('properties')
         .select('id, address, price, property_images(image_url)')
-        .eq('user_id', user.id)
+        .eq('profile_id', profile.id)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
     },
-    enabled: !!user?.id,
+    enabled: !!profile?.id,
   })
 
   // Fetch user's buy boxes
