@@ -10,12 +10,6 @@ export default function Home() {
         <h1>Billings RE Investors</h1>
         <p className="subtitle">A member portal for the Billings, Montana real estate investor meetup group.</p>
 
-        {!user && (
-          <nav className="home-nav">
-            <Link to="/login" className="btn">Log In</Link>
-            <Link to="/login?mode=signup" className="btn btn-secondary">Sign Up</Link>
-          </nav>
-        )}
         {user && !profile?.approved && (
           <nav className="home-nav">
             <Link to="/pending" className="btn btn-secondary">Check Approval Status</Link>

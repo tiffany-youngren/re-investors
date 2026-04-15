@@ -28,14 +28,14 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* Public routes — no Layout */}
-            <Route path="/" element={<Home />} />
+            {/* Public routes without Layout */}
             <Route path="/login" element={<Login />} />
             <Route path="/pending" element={<PendingApproval />} />
             <Route path="/reset-password" element={<ResetPassword />} />
 
-            {/* Authenticated routes — persistent Layout shell */}
+            {/* All routes with Layout (navbar) */}
             <Route element={<Layout />}>
+              <Route path="/" element={<Home />} />
               <Route
                 path="/buyers"
                 element={

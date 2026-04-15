@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -11,8 +11,13 @@ export default function Login() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const { signIn } = useAuth()
+  const { user, profile, loading, signIn } = useAuth()
   const navigate = useNavigate()
+
+  // If already logged in and approved, redirect to For Sale
+  if (!loading && user && profile?.approved) {
+    return <Navigate to="/buyers" replace />
+  }
 
   function switchMode(newMode) {
     setMode(newMode)
