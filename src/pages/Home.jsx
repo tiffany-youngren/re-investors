@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Home() {
-  const { user, profile } = useAuth()
+  const { user, profile, loading, roleLoading } = useAuth()
+  const authResolved = !loading && !roleLoading
 
   return (
     <div className="home-page">
@@ -10,7 +11,7 @@ export default function Home() {
         <h1>Billings RE Investors</h1>
         <p className="subtitle">A member portal for the Billings, Montana real estate investor meetup group.</p>
 
-        {user && !profile?.approved && (
+        {authResolved && user && !profile?.approved && (
           <nav className="home-nav">
             <Link to="/pending" className="btn btn-secondary">Check Approval Status</Link>
           </nav>
