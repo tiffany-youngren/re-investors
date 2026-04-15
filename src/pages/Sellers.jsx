@@ -78,7 +78,8 @@ export default function Sellers() {
               <h3>{listing.address}</h3>
               <p className="listing-price">${Number(listing.price).toLocaleString()}</p>
               <p>
-                {listing.property_type} &middot; {listing.condition} &middot; {listing.occupancy}
+                {listing.property_type} &middot; {listing.condition} &middot; {listing.occupancy_status}
+                {listing.status === 'draft' && <span className="admin-badge badge-pending" style={{ marginLeft: 8 }}>Draft</span>}
               </p>
               <p className="listing-meta">
                 {listing.seller_type} &middot; {listing.financing?.join(', ')}

@@ -29,7 +29,7 @@ export default function PropertyCard({ property }) {
               ? ` (${property.num_units} units)`
               : ''}
             {' · '}{property.condition}
-            {' · '}{property.occupancy}
+            {' · '}{property.occupancy_status}
           </p>
           <p className="pc-meta">
             {property.seller_type}
@@ -78,10 +78,27 @@ export default function PropertyCard({ property }) {
             <p>{property.description}</p>
           </div>
 
+          {/* Repairs & Costs */}
+          {property.repairs_needed && (
+            <div className="pc-description">
+              <h4>Repairs Needed</h4>
+              <p>{property.repairs_needed}</p>
+            </div>
+          )}
+
           {/* Extra details */}
           <div className="pc-extras">
+            {property.rehab_cost_estimate && (
+              <p><strong>Rehab Cost Estimate:</strong> ${Number(property.rehab_cost_estimate).toLocaleString()}</p>
+            )}
             {property.estimated_arv && (
               <p><strong>Estimated ARV:</strong> ${Number(property.estimated_arv).toLocaleString()}</p>
+            )}
+            {property.county_records_url && (
+              <p>
+                <strong>County Records:</strong>{' '}
+                <a href={property.county_records_url} target="_blank" rel="noopener noreferrer">View Records</a>
+              </p>
             )}
             {property.virtual_tour_url && (
               <p>

@@ -18,6 +18,7 @@ export default function Buyers() {
       const { data, error } = await supabase
         .from('properties')
         .select('*, property_images(*), profiles(first_name, last_name, phone, brokerage_name)')
+        .eq('status', 'published')
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -33,7 +34,7 @@ export default function Buyers() {
   const filtered = properties.filter((p) => {
     if (filterType && p.property_type !== filterType) return false
     if (filterCondition && p.condition !== filterCondition) return false
-    if (filterOccupancy && p.occupancy !== filterOccupancy) return false
+    if (filterOccupancy && p.occupancy_status !== filterOccupancy) return false
     return true
   })
 
@@ -56,7 +57,7 @@ export default function Buyers() {
             onChange={(e) => setFilterType(e.target.value)}
           >
             <option value="">All</option>
-            <option value="fixer">Fixer</option>
+            <option value="single-family">Single Family</option>
             <option value="multi-family">Multi-Family</option>
             <option value="commercial">Commercial</option>
           </select>
