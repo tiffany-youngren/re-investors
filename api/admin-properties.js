@@ -41,7 +41,7 @@ export default async function handler(req, res) {
 
   // POST — update a property (e.g. approval status)
   if (req.method === 'POST') {
-    const { propertyId, approved, flagged } = req.body
+    const { propertyId, approved, flagged, flagReason } = req.body
     if (!propertyId) return res.status(400).json({ error: 'propertyId required' })
 
     const updates = {}
@@ -50,15 +50,33 @@ export default async function handler(req, res) {
       // When approving, also activate so it appears on the For Sale page
       if (approved === true) updates.status = 'active'
     }
-    if (flagged === true) updates.status = 'flagged'
+    if (flagged === true) {
+      updates.status = 'flagged'
+      if (flagReason) updates.flag_reason = String(flagReason).slice(0, 1000)
+    }
+    // When unflagging (admin re-approves), clear the reason
+    if (approved === true) updates.flag_reason = null
 
-    const { data: updated, error } = await supabase
+    let { data: updated, error } = await supabase
       .from('properties')
       .update(updates)
       .eq('id', propertyId)
       .select('id, address, profile_id, status')
       .single()
 
+    // If flag_reason column doesn't exist yet, retry without it
+    if (error && String(error.message || '').toLowerCase().includes('flag_reason')) {
+      const fallback = { ...updates }
+      delete fallback.flag_reason
+      const retry = await supabase
+        .from('properties')
+        .update(fallback)
+        .eq('id', propertyId)
+        .select('id, address, profile_id, status')
+        .single()
+      updated = retry.data
+      error = retry.error
+    }
     if (error) return res.status(500).json({ error: error.message })
 
     // Create a notification for the owner

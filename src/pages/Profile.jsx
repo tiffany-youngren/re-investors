@@ -29,6 +29,35 @@ async function resizeAvatar(file, maxSize = 300) {
   })
 }
 
+function BuyBoxFlagPanel({ buyBox, onSubmit, pending }) {
+  const [text, setText] = useState(buyBox.flag_response || '')
+  return (
+    <div className="profile-warning" style={{ marginTop: 8 }}>
+      <p><strong>Flagged by admin:</strong> {buyBox.flag_reason}</p>
+      <label htmlFor={`flag-resp-${buyBox.id}`} style={{ display: 'block', marginTop: 8, fontWeight: 600 }}>
+        Your response:
+      </label>
+      <textarea
+        id={`flag-resp-${buyBox.id}`}
+        rows={2}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Reply to the admin's flag..."
+        style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 4, border: '1px solid #fcd34d', fontFamily: 'inherit' }}
+      />
+      <button
+        type="button"
+        className="btn btn-sm"
+        style={{ marginTop: 6 }}
+        onClick={() => onSubmit(text.trim())}
+        disabled={pending}
+      >
+        {pending ? 'Saving...' : (buyBox.flag_response ? 'Update Response' : 'Send Response')}
+      </button>
+    </div>
+  )
+}
+
 export default function Profile() {
   const { user, profile, refreshProfile } = useAuth()
   const queryClient = useQueryClient()
@@ -62,7 +91,7 @@ export default function Profile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('properties')
-        .select('id, address, price, status, expires_at, property_images(image_url, display_order)')
+        .select('*, property_images(image_url, display_order)')
         .eq('profile_id', profile.id)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -108,6 +137,19 @@ export default function Profile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-properties'] })
+    },
+  })
+
+  const updateBuyBoxResponseMutation = useMutation({
+    mutationFn: async ({ id, response }) => {
+      const { error } = await supabase
+        .from('buy_boxes')
+        .update({ flag_response: response })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-buy-boxes'] })
     },
   })
 
@@ -506,6 +548,11 @@ export default function Profile() {
                       </span>
                     )}
                   </p>
+                  {p.status === 'flagged' && p.flag_reason && (
+                    <div className="profile-warning" style={{ marginTop: 8 }}>
+                      <p><strong>Flagged by admin:</strong> {p.flag_reason}</p>
+                    </div>
+                  )}
                   <div className="listing-actions">
                     <Link to={`/sellers?edit=${p.id}`} className="btn btn-sm btn-secondary">Edit</Link>
                     {p.status === 'active' && (
@@ -567,6 +614,16 @@ export default function Profile() {
                       {bb.price_min ? `$${Number(bb.price_min).toLocaleString()} – ` : 'Up to '}
                       ${Number(bb.price_max).toLocaleString()}
                     </p>
+                  )}
+                  <p>
+                    {bb.approved
+                      ? <span className="admin-badge badge-member">Approved</span>
+                      : bb.flag_reason
+                        ? <span className="admin-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Flagged</span>
+                        : <span className="admin-badge badge-pending">Pending</span>}
+                  </p>
+                  {bb.flag_reason && (
+                    <BuyBoxFlagPanel buyBox={bb} onSubmit={(text) => updateBuyBoxResponseMutation.mutate({ id: bb.id, response: text })} pending={updateBuyBoxResponseMutation.isPending} />
                   )}
                   <div className="listing-actions">
                     <Link to={`/buy-box/${bb.id}/edit`} className="btn btn-sm btn-secondary">Edit</Link>

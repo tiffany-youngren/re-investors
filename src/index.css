@@ -471,12 +471,17 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
 .checkbox-label {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   font-weight: 400;
   margin-top: 4px;
+  text-align: left;
 }
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type="checkbox"],
+.checkbox-label input[type="radio"] {
   width: auto;
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 /* Image previews */

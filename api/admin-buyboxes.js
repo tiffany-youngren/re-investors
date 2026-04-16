@@ -39,31 +39,71 @@ export default async function handler(req, res) {
     return res.status(200).json(data)
   }
 
-  // POST — update a buy box approval status
+  // POST — update a buy box (approval / flag / member response)
   if (req.method === 'POST') {
-    const { buyBoxId, approved } = req.body
+    const { buyBoxId, approved, flagged, flagReason, flagResponse } = req.body
     if (!buyBoxId) return res.status(400).json({ error: 'buyBoxId required' })
 
     const updates = {}
-    if (typeof approved === 'boolean') updates.approved = approved
+    if (typeof approved === 'boolean') {
+      updates.approved = approved
+      // Approving clears any prior flag
+      if (approved === true) {
+        updates.flag_reason = null
+      }
+    }
+    if (flagged === true) {
+      updates.approved = false
+      if (flagReason) updates.flag_reason = String(flagReason).slice(0, 1000)
+    }
+    if (typeof flagResponse === 'string') {
+      updates.flag_response = flagResponse.slice(0, 1000)
+    }
 
-    const { data: updated, error } = await supabase
+    let { data: updated, error } = await supabase
       .from('buy_boxes')
       .update(updates)
       .eq('id', buyBoxId)
       .select('id, profile_id, approved')
       .single()
 
+    // Retry without optional columns if they don't exist yet
+    if (error) {
+      const msg = String(error.message || '').toLowerCase()
+      if (msg.includes('flag_reason') || msg.includes('flag_response')) {
+        const fallback = { ...updates }
+        delete fallback.flag_reason
+        delete fallback.flag_response
+        const retry = await supabase
+          .from('buy_boxes')
+          .update(fallback)
+          .eq('id', buyBoxId)
+          .select('id, profile_id, approved')
+          .single()
+        updated = retry.data
+        error = retry.error
+      }
+    }
     if (error) return res.status(500).json({ error: error.message })
 
-    // Notify the owner when their buy box is approved
-    if (updated?.profile_id && approved === true) {
-      await supabase.from('notifications').insert({
-        profile_id: updated.profile_id,
-        title: 'Buy box approved',
-        message: 'Your buy box was approved and is now visible to members on the Buy Boxes page.',
-        link: '/buy-boxes',
-      })
+    // Notify the owner on each transition
+    if (updated?.profile_id) {
+      let title = null, message = null
+      if (approved === true) {
+        title = 'Buy box approved'
+        message = 'Your buy box was approved and is now visible on the Buy Boxes page.'
+      } else if (flagged === true) {
+        title = 'Buy box flagged'
+        message = 'Your buy box was flagged by admin and is no longer visible. Check your Profile for the reason.'
+      }
+      if (title) {
+        await supabase.from('notifications').insert({
+          profile_id: updated.profile_id,
+          title,
+          message,
+          link: '/profile',
+        }).then(() => {}, () => {})
+      }
     }
 
     return res.status(200).json({ success: true })

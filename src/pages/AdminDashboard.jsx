@@ -20,6 +20,23 @@ async function apiFetch(url, options = {}) {
   return res.json()
 }
 
+// Helper: run an admin action, surface any error as an alert.
+async function runAdminAction(url, body, method = 'POST') {
+  try {
+    const result = await apiFetch(url, { method, body: JSON.stringify(body) })
+    if (result?.error) {
+      alert(`Action failed: ${result.error}`)
+      console.error('admin action failed:', url, body, result)
+      return null
+    }
+    return result
+  } catch (e) {
+    alert(`Network error: ${e?.message || 'Unknown error'}`)
+    console.error('admin action threw:', url, body, e)
+    return null
+  }
+}
+
 const USER_FILTERS = ['all', 'members', 'visitors', 'pending', 'declined']
 const PROPERTY_FILTERS = ['all', 'active', 'draft', 'flagged', 'expired']
 const BUY_BOX_FILTERS = ['all', 'pending', 'approved']
@@ -72,20 +89,14 @@ export default function AdminDashboard() {
   // ---------- USER ACTIONS ----------
   async function approveUser(profileId) {
     setActionInProgress(`approve-${profileId}`)
-    await apiFetch('/api/admin-users', {
-      method: 'POST',
-      body: JSON.stringify({ profileId, approved: true, role: 'member' }),
-    })
+    await runAdminAction('/api/admin-users', { profileId, approved: true, role: 'member' })
     await fetchUsers()
     setActionInProgress('')
   }
 
   async function makeVisitor(profileId) {
     setActionInProgress(`visitor-${profileId}`)
-    await apiFetch('/api/admin-users', {
-      method: 'POST',
-      body: JSON.stringify({ profileId, approved: true, role: 'visitor' }),
-    })
+    await runAdminAction('/api/admin-users', { profileId, approved: true, role: 'visitor' })
     await fetchUsers()
     setActionInProgress('')
   }
@@ -93,10 +104,7 @@ export default function AdminDashboard() {
   async function denyUser(userId) {
     if (!window.confirm('This will permanently delete this user. Continue?')) return
     setActionInProgress(`deny-${userId}`)
-    await apiFetch('/api/admin-users', {
-      method: 'DELETE',
-      body: JSON.stringify({ userId }),
-    })
+    await runAdminAction('/api/admin-users', { userId }, 'DELETE')
     await fetchUsers()
     setActionInProgress('')
   }
@@ -104,9 +112,8 @@ export default function AdminDashboard() {
   async function revokeApproval(profileId) {
     if (!window.confirm('Revoke this user\'s access? They will be marked as Declined.')) return
     setActionInProgress(`revoke-${profileId}`)
-    await apiFetch('/api/admin-users', {
-      method: 'POST',
-      body: JSON.stringify({ profileId, approved: false, role: 'visitor', declined: true }),
+    await runAdminAction('/api/admin-users', {
+      profileId, approved: false, role: 'visitor', declined: true,
     })
     await fetchUsers()
     setActionInProgress('')
@@ -115,20 +122,14 @@ export default function AdminDashboard() {
   async function deleteUser(userId) {
     if (!window.confirm('This will permanently delete this user and all their data. They can create a new account in the future. Continue?')) return
     setActionInProgress(`delete-${userId}`)
-    await apiFetch('/api/admin-users', {
-      method: 'DELETE',
-      body: JSON.stringify({ userId }),
-    })
+    await runAdminAction('/api/admin-users', { userId }, 'DELETE')
     await fetchUsers()
     setActionInProgress('')
   }
 
   async function changeRole(profileId, newRole) {
     setActionInProgress(`role-${profileId}`)
-    await apiFetch('/api/admin-users', {
-      method: 'POST',
-      body: JSON.stringify({ profileId, role: newRole }),
-    })
+    await runAdminAction('/api/admin-users', { profileId, role: newRole })
     await fetchUsers()
     setActionInProgress('')
   }
@@ -145,22 +146,18 @@ export default function AdminDashboard() {
   }
 
   async function flagProperty(propertyId) {
-    if (!window.confirm('Flag this listing? It will be hidden from the For Sale page.')) return
+    const reason = window.prompt('Why are you flagging this listing? The member will see this reason on their Profile page.', '')
+    if (reason === null) return
+    if (!reason.trim()) { alert('A reason is required.'); return }
     setActionInProgress(`flag-prop-${propertyId}`)
-    await apiFetch('/api/admin-properties', {
-      method: 'POST',
-      body: JSON.stringify({ propertyId, flagged: true }),
-    })
+    await runAdminAction('/api/admin-properties', { propertyId, flagged: true, flagReason: reason.trim() })
     await fetchProperties()
     setActionInProgress('')
   }
 
   async function unflagProperty(propertyId) {
     setActionInProgress(`unflag-prop-${propertyId}`)
-    await apiFetch('/api/admin-properties', {
-      method: 'POST',
-      body: JSON.stringify({ propertyId, approved: true }),
-    })
+    await runAdminAction('/api/admin-properties', { propertyId, approved: true })
     await fetchProperties()
     setActionInProgress('')
   }
@@ -168,10 +165,7 @@ export default function AdminDashboard() {
   async function removeProperty(propertyId) {
     if (!window.confirm('Permanently remove this listing and its images?')) return
     setActionInProgress(`remove-prop-${propertyId}`)
-    await apiFetch('/api/admin-properties', {
-      method: 'DELETE',
-      body: JSON.stringify({ propertyId }),
-    })
+    await runAdminAction('/api/admin-properties', { propertyId }, 'DELETE')
     await fetchProperties()
     setActionInProgress('')
   }
@@ -179,10 +173,7 @@ export default function AdminDashboard() {
   // ---------- BUY BOX ACTIONS ----------
   async function approveBuyBox(buyBoxId) {
     setActionInProgress(`approve-bb-${buyBoxId}`)
-    await apiFetch('/api/admin-buyboxes', {
-      method: 'POST',
-      body: JSON.stringify({ buyBoxId, approved: true }),
-    })
+    await runAdminAction('/api/admin-buyboxes', { buyBoxId, approved: true })
     await fetchBuyBoxes()
     setActionInProgress('')
   }
@@ -190,21 +181,17 @@ export default function AdminDashboard() {
   async function denyBuyBox(buyBoxId) {
     if (!window.confirm('Deny and remove this buy box?')) return
     setActionInProgress(`deny-bb-${buyBoxId}`)
-    await apiFetch('/api/admin-buyboxes', {
-      method: 'DELETE',
-      body: JSON.stringify({ buyBoxId }),
-    })
+    await runAdminAction('/api/admin-buyboxes', { buyBoxId }, 'DELETE')
     await fetchBuyBoxes()
     setActionInProgress('')
   }
 
-  async function unapproveBuyBox(buyBoxId) {
-    if (!window.confirm('Move this buy box back to pending?')) return
-    setActionInProgress(`unapprove-bb-${buyBoxId}`)
-    await apiFetch('/api/admin-buyboxes', {
-      method: 'POST',
-      body: JSON.stringify({ buyBoxId, approved: false }),
-    })
+  async function flagBuyBox(buyBoxId) {
+    const reason = window.prompt('Why are you flagging this buy box? The member will see this reason on their Profile page.', '')
+    if (reason === null) return
+    if (!reason.trim()) { alert('A reason is required.'); return }
+    setActionInProgress(`flag-bb-${buyBoxId}`)
+    await runAdminAction('/api/admin-buyboxes', { buyBoxId, flagged: true, flagReason: reason.trim() })
     await fetchBuyBoxes()
     setActionInProgress('')
   }
@@ -473,7 +460,19 @@ export default function AdminDashboard() {
                 )}
                 {b.approved
                   ? <span className="admin-badge badge-member">Approved</span>
-                  : <span className="admin-badge badge-pending">Pending</span>}
+                  : b.flag_reason
+                    ? <span className="admin-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Flagged</span>
+                    : <span className="admin-badge badge-pending">Pending</span>}
+                {b.flag_reason && (
+                  <span className="field-note" style={{ width: '100%', marginTop: 4 }}>
+                    Reason: {b.flag_reason}
+                  </span>
+                )}
+                {b.flag_response && (
+                  <span className="field-note" style={{ width: '100%', marginTop: 4 }}>
+                    Member reply: {b.flag_response}
+                  </span>
+                )}
               </div>
               <div className="admin-card-actions">
                 {!b.approved && (
@@ -488,10 +487,10 @@ export default function AdminDashboard() {
                 {b.approved && (
                   <button
                     className="btn btn-sm btn-secondary"
-                    onClick={() => unapproveBuyBox(b.id)}
-                    disabled={actionInProgress === `unapprove-bb-${b.id}`}
+                    onClick={() => flagBuyBox(b.id)}
+                    disabled={actionInProgress === `flag-bb-${b.id}`}
                   >
-                    {actionInProgress === `unapprove-bb-${b.id}` ? '...' : 'Unapprove'}
+                    {actionInProgress === `flag-bb-${b.id}` ? '...' : 'Flag'}
                   </button>
                 )}
                 <button
