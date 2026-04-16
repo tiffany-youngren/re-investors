@@ -1093,6 +1093,25 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
 }
 .image-thumb-remove:hover { background: var(--error); }
 
+/* Phone input with country code dropdown */
+.phone-input-row {
+  display: flex;
+  gap: 8px;
+}
+.phone-country-select {
+  flex: 0 0 auto;
+  width: 110px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #fff;
+}
+.phone-input-row input {
+  flex: 1;
+}
+
 /* Listing actions (Edit/Delete buttons on Sellers + Profile) */
 .listing-actions {
   display: flex;

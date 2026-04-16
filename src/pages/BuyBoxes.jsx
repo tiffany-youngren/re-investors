@@ -15,7 +15,7 @@ export default function BuyBoxes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('buy_boxes')
-        .select('*, profiles(first_name, last_name, phone, email, avatar_url)')
+        .select('*, profiles(first_name, last_name, phone, phone_country_code, email, avatar_url)')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -109,7 +109,7 @@ export default function BuyBoxes() {
                   {selectedBox.profiles?.first_name} {selectedBox.profiles?.last_name}
                 </h2>
                 {selectedBox.profiles?.phone && (
-                  <p style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>{displayPhone(selectedBox.profiles.phone)}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>{displayPhone(selectedBox.profiles.phone, selectedBox.profiles.phone_country_code)}</p>
                 )}
                 {selectedBox.profiles?.email && (
                   <p style={{ margin: '2px 0 0', fontSize: '0.9rem' }}>

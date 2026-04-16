@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { US_STATES, formatPhone, stripPhone } from '../lib/utils'
+import { US_STATES, COUNTRY_CODES, DEFAULT_COUNTRY_CODE, formatPhone, stripPhone } from '../lib/utils'
 
 async function resizeAvatar(file, maxSize = 300) {
   return new Promise((resolve) => {
@@ -36,7 +36,8 @@ export default function Profile() {
   // Form state
   const [firstName, setFirstName] = useState(profile?.first_name || '')
   const [lastName, setLastName] = useState(profile?.last_name || '')
-  const [phone, setPhone] = useState(formatPhone(profile?.phone || ''))
+  const [phoneCountryCode, setPhoneCountryCode] = useState(profile?.phone_country_code || DEFAULT_COUNTRY_CODE)
+  const [phone, setPhone] = useState(formatPhone(profile?.phone || '', profile?.phone_country_code || DEFAULT_COUNTRY_CODE))
   const [city, setCity] = useState(profile?.city || '')
   const [state, setState] = useState(profile?.state || '')
   const [licenseStatus, setLicenseStatus] = useState(profile?.license_status || '')
@@ -183,6 +184,7 @@ export default function Profile() {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       phone: stripPhone(phone),
+      phone_country_code: phoneCountryCode,
       city: city.trim() || null,
       state: state.trim() || null,
       license_status: licenseStatus,
@@ -258,7 +260,29 @@ export default function Profile() {
           <input id="profileEmail" type="email" value={user?.email || ''} disabled />
 
           <label htmlFor="profilePhone">Phone</label>
-          <input id="profilePhone" type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(xxx) xxx-xxxx" required />
+          <div className="phone-input-row">
+            <select
+              className="phone-country-select"
+              value={phoneCountryCode}
+              onChange={(e) => {
+                const newCode = e.target.value
+                setPhoneCountryCode(newCode)
+                setPhone(formatPhone(phone, newCode))
+              }}
+            >
+              {COUNTRY_CODES.map((c, i) => (
+                <option key={`${c.code}-${c.label}-${i}`} value={c.code}>{c.label} {c.code}</option>
+              ))}
+            </select>
+            <input
+              id="profilePhone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(formatPhone(e.target.value, phoneCountryCode))}
+              placeholder={phoneCountryCode === '+1' ? '(xxx) xxx-xxxx' : 'Phone number'}
+              required
+            />
+          </div>
 
           <div className="form-row">
             <div className="form-field">
@@ -326,6 +350,14 @@ export default function Profile() {
             {submitting ? 'Saving...' : 'Save Profile'}
           </button>
         </form>
+      </div>
+
+      {/* Solicitation warning */}
+      <div className="profile-warning">
+        <p>
+          Any member or visitor who contacts a member to solicit outside of what is listed here
+          will likely lose access to the app.
+        </p>
       </div>
 
       {/* Member actions */}
@@ -421,14 +453,6 @@ export default function Profile() {
           </p>
         </div>
       )}
-
-      {/* Solicitation warning */}
-      <div className="profile-warning">
-        <p>
-          Any member or visitor who contacts a member to solicit outside of what is listed here
-          will likely lose access to the app.
-        </p>
-      </div>
     </div>
   )
 }

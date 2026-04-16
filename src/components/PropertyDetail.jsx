@@ -169,7 +169,7 @@ export default function PropertyDetail({ property, onClose }) {
           <div className="pd-section pd-seller">
             <h3>Listed By</h3>
             <p>{[seller.first_name, seller.last_name].filter(Boolean).join(' ') || 'Unknown'}</p>
-            {seller.phone && <p>{displayPhone(seller.phone)}</p>}
+            {seller.phone && <p>{displayPhone(seller.phone, seller.phone_country_code)}</p>}
             {seller.brokerage_name && <p className="pc-brokerage">{seller.brokerage_name}</p>}
           </div>
         )}
