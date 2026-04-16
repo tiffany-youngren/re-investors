@@ -255,39 +255,43 @@ export default function MemberContact() {
               )}
             </div>
 
-            <label htmlFor="contactName">Your Name</label>
-            <input
-              id="contactName"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+            <div className="message-field">
+              <div className="message-field-title">Your Message</div>
 
-            <label htmlFor="contactEmail">Your Email</label>
-            <input
-              id="contactEmail"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+              <label htmlFor="contactName" className="message-field-label">Your Name</label>
+              <input
+                id="contactName"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
 
-            <label htmlFor="contactMessage">Message</label>
-            <textarea
-              id="contactMessage"
-              rows={6}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={`Hi ${member.first_name || ''}, ...`}
-              required
-            />
+              <label htmlFor="contactEmail" className="message-field-label">Your Email</label>
+              <input
+                id="contactEmail"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
 
-            {error && <p className="error-msg">{error}</p>}
+              <label htmlFor="contactMessage" className="message-field-label">Message</label>
+              <textarea
+                id="contactMessage"
+                rows={6}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder={`Hi ${member.first_name || ''}, ...`}
+                required
+              />
 
-            <button type="submit" className="btn" disabled={submitting || !hasContactItems}>
-              {submitting ? 'Sending...' : 'Send Message'}
-            </button>
+              {error && <p className="error-msg">{error}</p>}
+
+              <button type="submit" className="btn" disabled={submitting || !hasContactItems} style={{ marginTop: 12 }}>
+                {submitting ? 'Sending...' : 'Send Message'}
+              </button>
+            </div>
           </form>
         )}
 

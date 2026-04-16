@@ -1483,6 +1483,62 @@ a.btn-contact:hover,
   color: var(--text);
 }
 
+/* Step 2: Your Message box (matches Step 1 Regarding styling) */
+.message-field {
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin: 16px 0 20px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+.message-field-title {
+  display: block;
+  font-weight: 700;
+  color: #1e3a8a;
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+  letter-spacing: 0.01em;
+}
+.message-field-title::before {
+  content: 'Step 2 · ';
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.message-field-label {
+  display: block;
+  font-weight: 600 !important;
+  color: #1e3a8a !important;
+  margin-top: 10px !important;
+  margin-bottom: 4px !important;
+  font-size: 0.95rem;
+}
+.message-field input,
+.message-field textarea {
+  width: 100%;
+  padding: 10px 12px !important;
+  border: 2px solid #93c5fd !important;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--text-h);
+}
+.message-field input:focus,
+.message-field textarea:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
 /* Lightbox */
 .lightbox-overlay {
   position: fixed;
