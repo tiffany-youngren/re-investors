@@ -14,9 +14,11 @@ export default function Login() {
   const { user, profile, loading, signIn } = useAuth()
   const navigate = useNavigate()
 
-  // If already logged in and approved, redirect to For Sale
-  if (!loading && user && profile?.approved) {
-    return <Navigate to="/buyers" replace />
+  // If already logged in, route to the right place
+  if (!loading && user && profile) {
+    const needsProfile = !profile.first_name || !profile.last_name || !profile.phone
+    if (needsProfile) return <Navigate to="/profile?welcome=1" replace />
+    if (profile.approved) return <Navigate to="/buyers" replace />
   }
 
   function switchMode(newMode) {
@@ -39,9 +41,9 @@ export default function Login() {
       } else {
         setError(error.message)
       }
-    } else {
-      navigate('/buyers')
     }
+    // Don't navigate here — the useAuth effect will refresh profile and the
+    // `Navigate` guard above will route to /profile or /buyers based on state.
 
     setSubmitting(false)
   }
@@ -82,7 +84,8 @@ export default function Login() {
         setError('Account created! Please log in with your email and password.')
         setMode('login')
       } else {
-        navigate('/buyers')
+        // Brand new signup — send them to profile with a welcome message
+        navigate('/profile?welcome=1')
       }
     }
 

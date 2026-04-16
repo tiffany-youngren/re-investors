@@ -658,6 +658,56 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
   max-width: 800px;
   margin: 0 auto;
 }
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+.admin-tab {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.admin-tab:hover { color: var(--text-h); }
+.admin-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.admin-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.filter-pill {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.filter-pill:hover {
+  background: #f3f4f6;
+  color: var(--text-h);
+}
+.filter-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
 .admin-section {
   margin-bottom: 32px;
 }
@@ -1248,22 +1298,30 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
 }
 
 /* Phone input with country code dropdown */
-.phone-input-row {
+.form-card .phone-input-row {
   display: flex;
+  flex-direction: row;
   gap: 8px;
+  align-items: stretch;
+  width: 100%;
 }
-.phone-country-select {
-  flex: 0 0 auto;
-  width: 110px;
-  padding: 10px 12px;
+.form-card .phone-input-row .phone-country-select {
+  flex: 0 0 100px;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+  padding: 10px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-family: inherit;
   background: #fff;
+  box-sizing: border-box;
 }
-.phone-input-row input {
-  flex: 1;
+.form-card .phone-input-row input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
 }
 
 /* Listing actions (Edit/Delete buttons on Sellers + Profile) */

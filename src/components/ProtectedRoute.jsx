@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-export default function ProtectedRoute({ children, requireAdmin }) {
+export default function ProtectedRoute({ children, requireAdmin, requireMember }) {
   const { user, profile, profileError, loading, roleLoading, refreshProfile } = useAuth()
 
   // Show spinner while auth or profile is loading
@@ -37,6 +37,11 @@ export default function ProtectedRoute({ children, requireAdmin }) {
   // Trying to access admin without admin role — go to home
   if (requireAdmin && profile.role !== 'admin') {
     return <Navigate to="/" replace />
+  }
+
+  // Member-only route (visitors blocked) — send to profile with explanation
+  if (requireMember && profile.role !== 'member' && profile.role !== 'admin') {
+    return <Navigate to="/profile?upgrade=1" replace />
   }
 
   return children

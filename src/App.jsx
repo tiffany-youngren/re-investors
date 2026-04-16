@@ -58,7 +58,7 @@ function App() {
               <Route
                 path="/buy-box/new"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireMember>
                     <BuyBoxForm />
                   </ProtectedRoute>
                 }
@@ -66,7 +66,7 @@ function App() {
               <Route
                 path="/buy-box/:id/edit"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireMember>
                     <BuyBoxForm />
                   </ProtectedRoute>
                 }
@@ -74,7 +74,7 @@ function App() {
               <Route
                 path="/sellers"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireMember>
                     <Sellers />
                   </ProtectedRoute>
                 }

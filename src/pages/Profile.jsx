@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -32,6 +32,9 @@ async function resizeAvatar(file, maxSize = 300) {
 export default function Profile() {
   const { user, profile, refreshProfile } = useAuth()
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const isWelcome = searchParams.get('welcome') === '1'
+  const isUpgrade = searchParams.get('upgrade') === '1'
 
   // Form state
   const [firstName, setFirstName] = useState(profile?.first_name || '')
@@ -45,6 +48,9 @@ export default function Profile() {
   const [investmentAreas, setInvestmentAreas] = useState(profile?.investment_areas || [])
   const [newAreaCity, setNewAreaCity] = useState('')
   const [newAreaState, setNewAreaState] = useState('')
+  const [attendsMeetups, setAttendsMeetups] = useState(
+    profile?.attends_meetups === true ? 'yes' : profile?.attends_meetups === false ? 'no' : ''
+  )
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -244,6 +250,7 @@ export default function Profile() {
       license_status: licenseStatus,
       brokerage_name: licenseStatus === 'licensed' ? brokerageName.trim() : null,
       investment_areas: investmentAreas,
+      attends_meetups: attendsMeetups === 'yes' ? true : attendsMeetups === 'no' ? false : null,
     }
 
     let result
@@ -269,6 +276,24 @@ export default function Profile() {
   return (
     <div className="profile-page">
       <h1>Your Profile</h1>
+
+      {isWelcome && (
+        <div className="profile-notice" style={{ marginBottom: 20 }}>
+          <h2>Welcome!</h2>
+          <p>Please complete your profile to get started.</p>
+        </div>
+      )}
+
+      {isUpgrade && (
+        <div className="profile-warning" style={{ marginBottom: 20 }}>
+          <p>
+            <strong>Members only.</strong> Posting properties and buy boxes is reserved
+            for approved members. You must attend at least 2 of the last 4 Based in Billings
+            meetups and be approved by admin. Complete your profile and an admin will review
+            your membership status.
+          </p>
+        </div>
+      )}
 
       {/* Avatar */}
       <div className="profile-avatar-section">
@@ -396,6 +421,36 @@ export default function Profile() {
               <button type="button" className="btn btn-sm btn-secondary" onClick={addInvestmentArea}>Add</button>
             </div>
           </div>
+
+          <fieldset className="financing-fieldset" style={{ marginTop: 16 }}>
+            <legend>Do you regularly attend Based in Billings Real Estate Investment meetups? *</legend>
+            <label className="checkbox-label">
+              <input
+                type="radio"
+                name="attendsMeetups"
+                value="yes"
+                checked={attendsMeetups === 'yes'}
+                onChange={() => setAttendsMeetups('yes')}
+                required
+              />
+              Yes
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="radio"
+                name="attendsMeetups"
+                value="no"
+                checked={attendsMeetups === 'no'}
+                onChange={() => setAttendsMeetups('no')}
+              />
+              No
+            </label>
+          </fieldset>
+          <p className="field-note">
+            We encourage members to attend all monthly meetings. You must have attended at least 2
+            of the last 4 meetups to be approved as a member and post For Sale Properties and Buy
+            Boxes on the site.
+          </p>
 
           {error && <p className="error-msg">{error}</p>}
           {success && <p className="success-msg">{success}</p>}
