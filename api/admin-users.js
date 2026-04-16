@@ -5,6 +5,50 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+const RESEND_API_KEY = process.env.RESEND_API_KEY
+const FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'Based in Billings <onboarding@resend.dev>'
+const APP_URL = process.env.APP_URL || 'https://reinvestors.aiwithtiffany.com'
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+async function sendApprovalEmail(toEmail, firstName) {
+  if (!RESEND_API_KEY || !toEmail) return { skipped: true }
+  const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : 'Hi there,'
+  const html = `
+    <p>${greeting}</p>
+    <p>Your account has been approved! You can now log in and access the Based in Billings RE Investors portal.</p>
+    <p>
+      <a href="${APP_URL}/login"
+         style="display:inline-block;background:#2563eb;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:600">
+        Log In
+      </a>
+    </p>
+    <p style="color:#6b7280;font-size:0.9rem">
+      Or visit: <a href="${APP_URL}/login">${APP_URL}/login</a>
+    </p>
+  `
+  return fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: FROM_EMAIL,
+      to: [toEmail],
+      subject: 'Your Based in Billings account has been approved',
+      html,
+    }),
+  })
+}
+
 export default async function handler(req, res) {
   // Verify the caller is an admin by checking their auth token
   const authHeader = req.headers.authorization
@@ -45,6 +89,13 @@ export default async function handler(req, res) {
     const { profileId, approved, role } = req.body
     if (!profileId) return res.status(400).json({ error: 'profileId required' })
 
+    // Snapshot the user's current state so we can detect a pending → approved transition
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('approved, email, first_name')
+      .eq('id', profileId)
+      .single()
+
     const updates = {}
     if (typeof approved === 'boolean') updates.approved = approved
     if (role) updates.role = role
@@ -55,7 +106,30 @@ export default async function handler(req, res) {
       .eq('id', profileId)
 
     if (error) return res.status(500).json({ error: error.message })
-    return res.status(200).json({ success: true })
+
+    // If we just approved a previously-unapproved user, send them an email.
+    const becameApproved = existing && !existing.approved && updates.approved === true
+    if (becameApproved && existing.email) {
+      try {
+        const r = await sendApprovalEmail(existing.email, existing.first_name)
+        if (r && r.ok === false) {
+          const errText = await r.text().catch(() => 'unknown')
+          console.error('approval email failed:', errText)
+        }
+      } catch (e) {
+        console.error('approval email error:', e?.message)
+      }
+
+      // Notification in-app
+      await supabase.from('notifications').insert({
+        profile_id: profileId,
+        title: 'Account approved',
+        message: 'Your account has been approved. Welcome to the Based in Billings RE Investors portal!',
+        link: '/profile',
+      })
+    }
+
+    return res.status(200).json({ success: true, emailed: becameApproved })
   }
 
   // DELETE — remove a user entirely (auth + profile cascade)

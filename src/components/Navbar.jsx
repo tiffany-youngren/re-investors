@@ -13,7 +13,7 @@ export default function Navbar() {
 
   async function handleLogOut() {
     await signOut()
-    window.location.href = '/'
+    window.location.href = '/login'
   }
 
   function isActive(path) {
