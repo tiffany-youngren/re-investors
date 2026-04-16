@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { US_STATES } from '../lib/utils'
@@ -87,7 +88,7 @@ function clearDraftStorage(key) {
 }
 
 function emptyUnit() {
-  return { bedrooms: '', bathrooms: '', sqft: '', rent: '', occupancy_status: 'vacant' }
+  return { bedrooms: '', bathrooms: '', square_feet: '', rent: '', occupancy_status: 'vacant' }
 }
 
 // Parse "{street}, {city}, {ST} {zip}" back into parts
@@ -105,7 +106,7 @@ function parseAddress(full) {
   return { street, city, state: '', zip: stateZip }
 }
 
-export default function PropertyForm({ onSaved, editingProperty, onCancelEdit }) {
+export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, onEnterNew }) {
   const { profile } = useAuth()
   const isLicensed = profile?.license_status === 'licensed'
   const isEditing = Boolean(editingProperty)
@@ -120,7 +121,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
         .map((u) => ({
           bedrooms: u.bedrooms != null ? String(u.bedrooms) : '',
           bathrooms: u.bathrooms != null ? String(u.bathrooms) : '',
-          sqft: u.sqft != null ? String(u.sqft) : '',
+          square_feet: u.square_feet != null ? String(u.square_feet) : '',
           rent: u.rent != null ? String(u.rent) : '',
           occupancy_status: u.occupancy_status || 'vacant',
         }))
@@ -190,6 +191,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
   const [dragIndex, setDragIndex] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const [copyMenuOpen, setCopyMenuOpen] = useState(null)
+  const [savedStatus, setSavedStatus] = useState(null) // 'draft' | 'active' after successful save
   const debounceRef = useRef(null)
   // Set to true on successful save so the unmount/debounce flush doesn't
   // re-save the form data back to sessionStorage after we've cleared it.
@@ -447,7 +449,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
         unit_number: i + 1,
         bedrooms: u.bedrooms ? parseInt(u.bedrooms, 10) : null,
         bathrooms: u.bathrooms ? parseFloat(u.bathrooms) : null,
-        sqft: u.sqft ? parseInt(u.sqft, 10) : null,
+        square_feet: u.square_feet ? parseInt(u.square_feet, 10) : null,
         rent: u.rent ? parseFloat(u.rent) : null,
         occupancy_status: u.occupancy_status || null,
       }))
@@ -528,13 +530,47 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     // flush would otherwise re-save form data back to sessionStorage.
     savedRef.current = true
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!isEditing) resetForm()
-    else clearDraftStorage(draftKey)
+    clearDraftStorage(draftKey)
+    setSavedStatus(targetStatus)
     setSubmitting(false)
     if (onSaved) onSaved()
   }
 
+  function handleEnterNewListing() {
+    resetForm()
+    setSavedStatus(null)
+    savedRef.current = false
+    if (onEnterNew) onEnterNew()
+  }
+
   const isPublishedEdit = isEditing && editingProperty.status === 'active'
+
+  // Success confirmation view (shown after a successful save)
+  if (savedStatus) {
+    const isDraft = savedStatus === 'draft'
+    const heading = isEditing
+      ? 'Your property listing has been updated!'
+      : isDraft
+        ? 'Your property listing has been saved as draft!'
+        : 'Your property listing has been submitted!'
+    const subtitle = isDraft
+      ? 'You can come back and publish it later from your Profile page.'
+      : 'It\'s now live on the For Sale page.'
+    return (
+      <div className="form-card">
+        <div className="profile-notice">
+          <h2>{heading}</h2>
+          <p>{subtitle}</p>
+        </div>
+        <div className="form-row" style={{ gap: 12, marginTop: 16 }}>
+          <button type="button" className="btn" onClick={handleEnterNewListing}>
+            Enter a New Listing
+          </button>
+          <Link to="/profile" className="btn btn-secondary">Back to Profile</Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="form-card">
@@ -621,7 +657,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
                   </div>
                   <div className="form-field">
                     <label style={{ fontSize: '0.85rem' }}>Sq Ft</label>
-                    <input type="number" min="0" value={unit.sqft} onChange={(e) => updateUnit(i, 'sqft', e.target.value)} />
+                    <input type="number" min="0" value={unit.square_feet} onChange={(e) => updateUnit(i, 'square_feet', e.target.value)} />
                   </div>
                 </div>
                 <div className="form-row">

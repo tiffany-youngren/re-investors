@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -53,6 +53,7 @@ export default function BuyBoxForm() {
   const [description, setDescription] = useState(draft?.description ?? '')
   const [error, setError] = useState(null)
   const [prefilled, setPrefilled] = useState(false)
+  const [savedSuccess, setSavedSuccess] = useState(false)
   const debounceRef = useRef(null)
   // Set to true on successful save so the unmount/debounce flush doesn't
   // re-save the form data back to sessionStorage after we've cleared it.
@@ -89,6 +90,21 @@ export default function BuyBoxForm() {
         .eq('profile_id', profile.id)
       if (error) throw error
       return count
+    },
+    enabled: !!profile?.id,
+  })
+
+  // Fetch all of the user's own buy boxes (for display on success screen)
+  const { data: myBuyBoxes = [] } = useQuery({
+    queryKey: ['my-buy-boxes', profile?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('buy_boxes')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
     },
     enabled: !!profile?.id,
   })
@@ -159,7 +175,8 @@ export default function BuyBoxForm() {
       clearDraft(draftKey)
       queryClient.invalidateQueries({ queryKey: ['buyBoxes'] })
       queryClient.invalidateQueries({ queryKey: ['buyBoxCount'] })
-      navigate('/buy-boxes')
+      queryClient.invalidateQueries({ queryKey: ['my-buy-boxes'] })
+      setSavedSuccess(true)
     },
     onError: (err) => {
       setError(err.message)
@@ -237,6 +254,85 @@ export default function BuyBoxForm() {
 
   if (isEditing && loadingBox) {
     return <div className="loading">Loading...</div>
+  }
+
+  // Success confirmation view
+  if (savedSuccess) {
+    const heading = isEditing
+      ? 'Your buy box has been updated!'
+      : 'Your buy box has been submitted!'
+    return (
+      <div className="buybox-form-page">
+        <h1>{isEditing ? 'Edit Buy Box' : 'New Buy Box'}</h1>
+        <div className="form-card">
+          <div className="profile-notice">
+            <h2>{heading}</h2>
+            <p>It will be visible on the Buy Boxes page once approved by admin.</p>
+          </div>
+          <div className="form-row" style={{ gap: 12, marginTop: 16 }}>
+            {!isEditing && myBuyBoxes.length < 4 && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  // Reset form to blank for another new entry
+                  savedRef.current = false
+                  setSavedSuccess(false)
+                  setAreas([])
+                  setNewCity('')
+                  setNewState('')
+                  setPropertyTypes([])
+                  setYearBuiltMin('')
+                  setYearBuiltMax('')
+                  setPriceMin('')
+                  setPriceMax('')
+                  setCapRate('')
+                  setCocReturn('')
+                  setNoi('')
+                  setDescription('')
+                  setError(null)
+                  if (isEditing) navigate('/buy-box/new')
+                }}
+              >
+                Add Another Buy Box
+              </button>
+            )}
+            <Link to="/profile" className="btn btn-secondary">Back to Profile</Link>
+          </div>
+        </div>
+
+        {myBuyBoxes.length > 0 && (
+          <div className="my-listings" style={{ marginTop: 24 }}>
+            <h2>Your Buy Boxes</h2>
+            {myBuyBoxes.map((bb) => {
+              const areasText = (bb.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ')
+              return (
+                <div key={bb.id} className="listing-card">
+                  <div className="listing-info">
+                    <h3>{areasText || 'Buy Box'}</h3>
+                    <p>{bb.property_types?.join(', ')}</p>
+                    {bb.price_max && (
+                      <p className="listing-price">
+                        {bb.price_min ? `$${Number(bb.price_min).toLocaleString()} – ` : 'Up to '}
+                        ${Number(bb.price_max).toLocaleString()}
+                      </p>
+                    )}
+                    <p>
+                      {bb.approved
+                        ? <span className="admin-badge badge-member">Approved</span>
+                        : <span className="admin-badge badge-pending">Pending</span>}
+                    </p>
+                    <div className="listing-actions">
+                      <Link to={`/buy-box/${bb.id}/edit`} className="btn btn-sm btn-secondary">Edit</Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (

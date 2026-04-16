@@ -87,7 +87,7 @@ export default function PropertyDetail({ property, onClose }) {
                 <div key={u.id || u.unit_number} className="pd-unit">
                   <strong>Unit {u.unit_number}</strong>
                   <span>{u.bedrooms ?? '?'} bd / {u.bathrooms ?? '?'} ba</span>
-                  {u.sqft && <span>{Number(u.sqft).toLocaleString()} sq ft</span>}
+                  {u.square_feet && <span>{Number(u.square_feet).toLocaleString()} sq ft</span>}
                   {u.rent && <span>${Number(u.rent).toLocaleString()}/mo</span>}
                   {u.occupancy_status && <span>{u.occupancy_status}</span>}
                 </div>

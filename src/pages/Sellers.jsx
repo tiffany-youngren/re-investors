@@ -67,11 +67,17 @@ export default function Sellers() {
   }
 
   function handleSaved() {
-    setEditingProperty(null)
+    // Don't clear editingProperty here — the form shows its own success state
+    // with "Enter a New Listing" / "Back to Profile" buttons.
     fetchListings()
   }
 
   function handleCancelEdit() {
+    setEditingProperty(null)
+  }
+
+  function handleEnterNew() {
+    // User clicked "Enter a New Listing" from the success screen
     setEditingProperty(null)
   }
 
@@ -130,6 +136,7 @@ export default function Sellers() {
           editingProperty={editingProperty}
           onSaved={handleSaved}
           onCancelEdit={handleCancelEdit}
+          onEnterNew={handleEnterNew}
         />
       </div>
 
