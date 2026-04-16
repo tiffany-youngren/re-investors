@@ -89,7 +89,7 @@ export default function PropertyDetail({ property, onClose }) {
                   <span>{u.bedrooms ?? '?'} bd / {u.bathrooms ?? '?'} ba</span>
                   {u.sqft && <span>{Number(u.sqft).toLocaleString()} sq ft</span>}
                   {u.rent && <span>${Number(u.rent).toLocaleString()}/mo</span>}
-                  {u.occupancy && <span>{u.occupancy}</span>}
+                  {u.occupancy_status && <span>{u.occupancy_status}</span>}
                 </div>
               ))}
             </div>

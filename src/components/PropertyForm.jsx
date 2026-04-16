@@ -87,7 +87,7 @@ function clearDraftStorage(key) {
 }
 
 function emptyUnit() {
-  return { bedrooms: '', bathrooms: '', sqft: '', rent: '', occupancy: 'vacant' }
+  return { bedrooms: '', bathrooms: '', sqft: '', rent: '', occupancy_status: 'vacant' }
 }
 
 // Parse "{street}, {city}, {ST} {zip}" back into parts
@@ -122,7 +122,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
           bathrooms: u.bathrooms != null ? String(u.bathrooms) : '',
           sqft: u.sqft != null ? String(u.sqft) : '',
           rent: u.rent != null ? String(u.rent) : '',
-          occupancy: u.occupancy || 'vacant',
+          occupancy_status: u.occupancy_status || 'vacant',
         }))
     : []
 
@@ -449,7 +449,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
         bathrooms: u.bathrooms ? parseFloat(u.bathrooms) : null,
         sqft: u.sqft ? parseInt(u.sqft, 10) : null,
         rent: u.rent ? parseFloat(u.rent) : null,
-        occupancy: u.occupancy || null,
+        occupancy_status: u.occupancy_status || null,
       }))
       console.log('[PropertyForm] unitRows to insert:', unitRows)
       const { data: insertedUnits, error: unitsErr } = await supabase
@@ -631,7 +631,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
                   </div>
                   <div className="form-field">
                     <label style={{ fontSize: '0.85rem' }}>Occupancy</label>
-                    <select value={unit.occupancy} onChange={(e) => updateUnit(i, 'occupancy', e.target.value)}>
+                    <select value={unit.occupancy_status} onChange={(e) => updateUnit(i, 'occupancy_status', e.target.value)}>
                       <option value="vacant">Vacant</option>
                       <option value="occupied">Occupied</option>
                     </select>
