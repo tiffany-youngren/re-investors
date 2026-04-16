@@ -12,6 +12,7 @@ import BuyBoxForm from './pages/BuyBoxForm'
 import Sellers from './pages/Sellers'
 import AdminDashboard from './pages/AdminDashboard'
 import Profile from './pages/Profile'
+import MemberContact from './pages/MemberContact'
 import ResetPassword from './pages/ResetPassword'
 
 const queryClient = new QueryClient({
@@ -83,6 +84,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/member/:profileId"
+                element={
+                  <ProtectedRoute>
+                    <MemberContact />
                   </ProtectedRoute>
                 }
               />

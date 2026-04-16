@@ -23,8 +23,10 @@ async function apiFetch(url, options = {}) {
 export default function AdminDashboard() {
   const [users, setUsers] = useState([])
   const [properties, setProperties] = useState([])
+  const [buyBoxes, setBuyBoxes] = useState([])
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [loadingProps, setLoadingProps] = useState(true)
+  const [loadingBoxes, setLoadingBoxes] = useState(true)
   const [error, setError] = useState('')
   const [actionInProgress, setActionInProgress] = useState('')
 
@@ -50,9 +52,21 @@ export default function AdminDashboard() {
     setLoadingProps(false)
   }
 
+  async function fetchBuyBoxes() {
+    setLoadingBoxes(true)
+    const data = await apiFetch('/api/admin-buyboxes')
+    if (Array.isArray(data)) {
+      setBuyBoxes(data)
+    } else {
+      setError(data.error || 'Failed to load buy boxes')
+    }
+    setLoadingBoxes(false)
+  }
+
   useEffect(() => {
     fetchUsers()
     fetchProperties()
+    fetchBuyBoxes()
   }, [])
 
   // User actions
@@ -120,8 +134,43 @@ export default function AdminDashboard() {
     setActionInProgress('')
   }
 
+  // Buy box actions
+  async function approveBuyBox(buyBoxId) {
+    setActionInProgress(`approve-bb-${buyBoxId}`)
+    await apiFetch('/api/admin-buyboxes', {
+      method: 'POST',
+      body: JSON.stringify({ buyBoxId, approved: true }),
+    })
+    await fetchBuyBoxes()
+    setActionInProgress('')
+  }
+
+  async function denyBuyBox(buyBoxId) {
+    if (!window.confirm('Deny and remove this buy box?')) return
+    setActionInProgress(`deny-bb-${buyBoxId}`)
+    await apiFetch('/api/admin-buyboxes', {
+      method: 'DELETE',
+      body: JSON.stringify({ buyBoxId }),
+    })
+    await fetchBuyBoxes()
+    setActionInProgress('')
+  }
+
+  async function unapproveBuyBox(buyBoxId) {
+    if (!window.confirm('Move this buy box back to pending?')) return
+    setActionInProgress(`unapprove-bb-${buyBoxId}`)
+    await apiFetch('/api/admin-buyboxes', {
+      method: 'POST',
+      body: JSON.stringify({ buyBoxId, approved: false }),
+    })
+    await fetchBuyBoxes()
+    setActionInProgress('')
+  }
+
   const pendingUsers = users.filter((u) => !u.approved)
   const approvedUsers = users.filter((u) => u.approved)
+  const pendingBoxes = buyBoxes.filter((b) => !b.approved)
+  const approvedBoxes = buyBoxes.filter((b) => b.approved)
 
   return (
     <div className="admin-page">
@@ -236,6 +285,86 @@ export default function AdminDashboard() {
                 disabled={actionInProgress === `remove-prop-${p.id}`}
               >
                 {actionInProgress === `remove-prop-${p.id}` ? '...' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* ---- BUY BOX MANAGEMENT ---- */}
+      <section className="admin-section">
+        <h2>Pending Buy Boxes ({pendingBoxes.length})</h2>
+        {loadingBoxes && <p>Loading buy boxes...</p>}
+        {!loadingBoxes && pendingBoxes.length === 0 && (
+          <p className="admin-empty">No pending buy boxes.</p>
+        )}
+        {pendingBoxes.map((b) => (
+          <div key={b.id} className="admin-card">
+            <div className="admin-card-info">
+              <strong>{[b.profiles?.first_name, b.profiles?.last_name].filter(Boolean).join(' ') || b.profiles?.email || 'Unknown'}</strong>
+              <span>{(b.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ') || 'No areas'}</span>
+              <span>{(b.property_types || []).join(', ')}</span>
+              {b.price_max && (
+                <span>
+                  {b.price_min ? `$${Number(b.price_min).toLocaleString()} – ` : 'Up to '}
+                  ${Number(b.price_max).toLocaleString()}
+                </span>
+              )}
+              <span className="admin-badge badge-pending">Pending</span>
+            </div>
+            <div className="admin-card-actions">
+              <button
+                className="btn btn-sm"
+                onClick={() => approveBuyBox(b.id)}
+                disabled={actionInProgress === `approve-bb-${b.id}`}
+              >
+                {actionInProgress === `approve-bb-${b.id}` ? '...' : 'Approve'}
+              </button>
+              <button
+                className="btn btn-sm btn-danger"
+                onClick={() => denyBuyBox(b.id)}
+                disabled={actionInProgress === `deny-bb-${b.id}`}
+              >
+                {actionInProgress === `deny-bb-${b.id}` ? '...' : 'Deny'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="admin-section">
+        <h2>Approved Buy Boxes ({approvedBoxes.length})</h2>
+        {!loadingBoxes && approvedBoxes.length === 0 && (
+          <p className="admin-empty">No approved buy boxes yet.</p>
+        )}
+        {approvedBoxes.map((b) => (
+          <div key={b.id} className="admin-card">
+            <div className="admin-card-info">
+              <strong>{[b.profiles?.first_name, b.profiles?.last_name].filter(Boolean).join(' ') || b.profiles?.email || 'Unknown'}</strong>
+              <span>{(b.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ') || 'No areas'}</span>
+              <span>{(b.property_types || []).join(', ')}</span>
+              {b.price_max && (
+                <span>
+                  {b.price_min ? `$${Number(b.price_min).toLocaleString()} – ` : 'Up to '}
+                  ${Number(b.price_max).toLocaleString()}
+                </span>
+              )}
+              <span className="admin-badge badge-member">Approved</span>
+            </div>
+            <div className="admin-card-actions">
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={() => unapproveBuyBox(b.id)}
+                disabled={actionInProgress === `unapprove-bb-${b.id}`}
+              >
+                {actionInProgress === `unapprove-bb-${b.id}` ? '...' : 'Unapprove'}
+              </button>
+              <button
+                className="btn btn-sm btn-danger"
+                onClick={() => denyBuyBox(b.id)}
+                disabled={actionInProgress === `deny-bb-${b.id}`}
+              >
+                {actionInProgress === `deny-bb-${b.id}` ? '...' : 'Remove'}
               </button>
             </div>
           </div>

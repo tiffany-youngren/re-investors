@@ -1093,6 +1093,29 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
 }
 .image-thumb-remove:hover { background: var(--error); }
 
+/* Member Contact page */
+.member-contact-page {
+  max-width: 600px;
+  margin: 0 auto;
+}
+.member-contact-page .back-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 16px;
+  color: var(--accent);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.member-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
 /* Phone input with country code dropdown */
 .phone-input-row {
   display: flex;

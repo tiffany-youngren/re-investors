@@ -171,6 +171,9 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const [copyMenuOpen, setCopyMenuOpen] = useState(null)
   const debounceRef = useRef(null)
+  // Set to true on successful save so the unmount/debounce flush doesn't
+  // re-save the form data back to sessionStorage after we've cleared it.
+  const savedRef = useRef(false)
 
   // Sync units array when numUnits changes for multi-family
   useEffect(() => {
@@ -186,6 +189,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
 
   // Debounced draft save — saves under a per-id key for edits, generic key for new
   const flushDraft = useCallback(() => {
+    if (savedRef.current) return
     saveDraftToStorage(draftKey, {
       street, city, addrState, zip, price, sellerType, propertyType,
       numUnits, units, occupancyStatus, condition, financing, description,
@@ -463,6 +467,10 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
       }
     }
 
+    // Block further draft saves before clearing — the unmount/debounce
+    // flush would otherwise re-save form data back to sessionStorage.
+    savedRef.current = true
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     if (!isEditing) resetForm()
     else clearDraftStorage(draftKey)
     setSubmitting(false)

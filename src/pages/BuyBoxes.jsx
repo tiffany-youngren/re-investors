@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useQuery } from '@tanstack/react-query'
-import { displayPhone } from '../lib/utils'
 
 export default function BuyBoxes() {
   const { user, profile } = useAuth()
@@ -15,7 +14,8 @@ export default function BuyBoxes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('buy_boxes')
-        .select('*, profiles(first_name, last_name, phone, phone_country_code, email, avatar_url)')
+        .select('*, profiles(first_name, last_name, avatar_url)')
+        .eq('approved', true)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -108,16 +108,6 @@ export default function BuyBoxes() {
                 <h2 style={{ margin: 0 }}>
                   {selectedBox.profiles?.first_name} {selectedBox.profiles?.last_name}
                 </h2>
-                {selectedBox.profiles?.phone && (
-                  <p style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>{displayPhone(selectedBox.profiles.phone, selectedBox.profiles.phone_country_code)}</p>
-                )}
-                {selectedBox.profiles?.email && (
-                  <p style={{ margin: '2px 0 0', fontSize: '0.9rem' }}>
-                    <a href={`mailto:${selectedBox.profiles.email}`} style={{ color: 'var(--accent)' }}>
-                      {selectedBox.profiles.email}
-                    </a>
-                  </p>
-                )}
               </div>
             </div>
 
@@ -166,6 +156,17 @@ export default function BuyBoxes() {
               <div className="buybox-modal-section">
                 <h3>Description</h3>
                 <p style={{ whiteSpace: 'pre-wrap' }}>{selectedBox.description}</p>
+              </div>
+            )}
+
+            {selectedBox.profile_id && selectedBox.profile_id !== profile?.id && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <Link
+                  to={`/member/${selectedBox.profile_id}?source=buy_box&id=${selectedBox.id}`}
+                  className="btn"
+                >
+                  Contact {selectedBox.profiles?.first_name || 'Member'}
+                </Link>
               </div>
             )}
           </div>

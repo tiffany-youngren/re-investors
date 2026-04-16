@@ -54,9 +54,13 @@ export default function BuyBoxForm() {
   const [error, setError] = useState(null)
   const [prefilled, setPrefilled] = useState(false)
   const debounceRef = useRef(null)
+  // Set to true on successful save so the unmount/debounce flush doesn't
+  // re-save the form data back to sessionStorage after we've cleared it.
+  const savedRef = useRef(false)
 
   // Debounced draft save
   const flushDraft = useCallback(() => {
+    if (savedRef.current) return
     saveDraft(draftKey, {
       areas, newCity, newState, propertyTypes,
       yearBuiltMin, yearBuiltMax, priceMin, priceMax,
@@ -70,7 +74,7 @@ export default function BuyBoxForm() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [flushDraft])
 
-  // Flush on unmount
+  // Flush on unmount (skipped after a successful save)
   useEffect(() => {
     return () => flushDraft()
   }, [flushDraft])
@@ -140,13 +144,18 @@ export default function BuyBoxForm() {
           .eq('id', id)
         if (error) throw error
       } else {
+        // New buy boxes require admin approval before showing publicly
         const { error } = await supabase
           .from('buy_boxes')
-          .insert({ ...buyBoxData, profile_id: profile.id })
+          .insert({ ...buyBoxData, profile_id: profile.id, approved: false })
         if (error) throw error
       }
     },
     onSuccess: () => {
+      // Block further draft saves before clearing — the unmount/debounce
+      // flush would otherwise re-save form data after navigation.
+      savedRef.current = true
+      if (debounceRef.current) clearTimeout(debounceRef.current)
       clearDraft(draftKey)
       queryClient.invalidateQueries({ queryKey: ['buyBoxes'] })
       queryClient.invalidateQueries({ queryKey: ['buyBoxCount'] })

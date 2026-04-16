@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { displayPhone } from '../lib/utils'
+import { Link } from 'react-router-dom'
 
 // Parse "{street}, {city}, {ST} {zip}" back into parts for display
 function parseAddress(full) {
@@ -165,20 +165,31 @@ export default function PropertyDetail({ property, onClose }) {
         )}
 
         {/* Seller contact */}
-        {seller && (
+        {seller && property.profile_id && (
           <div className="pd-section pd-seller">
             <h3>Listed By</h3>
-            <p>{[seller.first_name, seller.last_name].filter(Boolean).join(' ') || 'Unknown'}</p>
-            {seller.phone && <p>{displayPhone(seller.phone, seller.phone_country_code)}</p>}
             {seller.brokerage_name && <p className="pc-brokerage">{seller.brokerage_name}</p>}
+            <Link
+              to={`/member/${property.profile_id}?source=property&id=${property.id}`}
+              className="btn"
+              style={{ marginTop: 8 }}
+            >
+              Contact {seller.first_name || 'Member'}
+            </Link>
           </div>
         )}
       </div>
 
-      {/* Lightbox */}
+      {/* Lightbox — must stop propagation so closing it doesn't also close the parent modal */}
       {lightboxIndex !== null && images.length > 0 && (
-        <div className="lightbox-overlay" onClick={() => setLightboxIndex(null)}>
-          <button className="lightbox-close" onClick={() => setLightboxIndex(null)}>&times;</button>
+        <div
+          className="lightbox-overlay"
+          onClick={(e) => { e.stopPropagation(); setLightboxIndex(null) }}
+        >
+          <button
+            className="lightbox-close"
+            onClick={(e) => { e.stopPropagation(); setLightboxIndex(null) }}
+          >&times;</button>
           {images.length > 1 && (
             <button
               className="lightbox-nav lightbox-prev"
