@@ -5,9 +5,11 @@ const AuthContext = createContext()
 
 async function fetchUserProfile(userId) {
   try {
+    // Use '*' so we tolerate the schema evolving (newly-added columns don't
+    // need a code change, and missing columns won't break the fetch).
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, user_id, first_name, last_name, email, phone, phone_country_code, role, approved, declined, license_status, brokerage_name, city, state, investment_areas, avatar_url, attends_meetups')
+      .select('*')
       .eq('user_id', userId)
       .single()
 

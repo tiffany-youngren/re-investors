@@ -33,6 +33,7 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <div className="app-shell">
+          <main className="app-main">
           <Routes>
             {/* Public routes without Layout */}
             <Route path="/login" element={<Login />} />
@@ -109,6 +110,7 @@ function App() {
               />
             </Route>
           </Routes>
+          </main>
           <Footer />
           </div>
         </AuthProvider>

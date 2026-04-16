@@ -38,8 +38,9 @@ body {
   flex-direction: column;
   min-height: 100svh;
 }
-.app-shell > :not(.site-footer) {
+.app-main {
   flex: 1 0 auto;
+  display: block;
 }
 
 .site-footer {
@@ -230,8 +231,10 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
 
 /* Auth page */
 .auth-page {
-  max-width: 440px;
+  max-width: 450px;
+  width: 100%;
   margin: 40px auto;
+  box-sizing: border-box;
 }
 .back-link {
   display: inline-block;
