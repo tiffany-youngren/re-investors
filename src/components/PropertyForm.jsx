@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { US_STATES } from '../lib/utils'
+import { US_STATES, formatPriceInput, stripPriceInput } from '../lib/utils'
 
 const FINANCING_OPTIONS = [
   'Seller financing',
@@ -624,8 +624,15 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, o
           </div>
         </div>
 
-        <label htmlFor="price">Price ($) *</label>
-        <input id="price" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+        <label htmlFor="price">Price *</label>
+        <input
+          id="price"
+          type="text"
+          inputMode="decimal"
+          value={formatPriceInput(price)}
+          onChange={(e) => setPrice(stripPriceInput(e.target.value))}
+          placeholder="$0"
+        />
 
         <label htmlFor="sellerType">Seller Type *</label>
         {isLicensed ? (
@@ -676,7 +683,13 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, o
                 <div className="form-row">
                   <div className="form-field">
                     <label style={{ fontSize: '0.85rem' }}>Rent $/mo</label>
-                    <input type="number" min="0" value={unit.rent} onChange={(e) => updateUnit(i, 'rent', e.target.value)} />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={formatPriceInput(unit.rent)}
+                      onChange={(e) => updateUnit(i, 'rent', stripPriceInput(e.target.value))}
+                      placeholder="$0"
+                    />
                   </div>
                   <div className="form-field">
                     <label style={{ fontSize: '0.85rem' }}>Occupancy</label>
@@ -773,11 +786,25 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, o
         <p className="field-note">{countWords(description)}/300 words</p>
         {fhaWarning && <p className="warning-msg">{fhaWarning}</p>}
 
-        <label htmlFor="rehabCostEstimate">Rehab Cost Estimate ($)</label>
-        <input id="rehabCostEstimate" type="number" min="0" step="0.01" value={rehabCostEstimate} onChange={(e) => setRehabCostEstimate(e.target.value)} />
+        <label htmlFor="rehabCostEstimate">Rehab Cost Estimate</label>
+        <input
+          id="rehabCostEstimate"
+          type="text"
+          inputMode="decimal"
+          value={formatPriceInput(rehabCostEstimate)}
+          onChange={(e) => setRehabCostEstimate(stripPriceInput(e.target.value))}
+          placeholder="$0"
+        />
 
-        <label htmlFor="estimatedArv">Estimated ARV ($)</label>
-        <input id="estimatedArv" type="number" min="0" step="0.01" value={estimatedArv} onChange={(e) => setEstimatedArv(e.target.value)} />
+        <label htmlFor="estimatedArv">Estimated ARV</label>
+        <input
+          id="estimatedArv"
+          type="text"
+          inputMode="decimal"
+          value={formatPriceInput(estimatedArv)}
+          onChange={(e) => setEstimatedArv(stripPriceInput(e.target.value))}
+          placeholder="$0"
+        />
 
         <label htmlFor="countyRecordsUrl">County Records URL</label>
         <input id="countyRecordsUrl" type="url" value={countyRecordsUrl} onChange={(e) => setCountyRecordsUrl(e.target.value)} placeholder="https://..." />

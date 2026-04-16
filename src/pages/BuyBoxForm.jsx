@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { US_STATES } from '../lib/utils'
+import { US_STATES, formatPriceInput, stripPriceInput } from '../lib/utils'
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: 'single-family', label: 'Single-Family' },
@@ -410,18 +410,20 @@ export default function BuyBoxForm() {
           <div className="form-row">
             <div className="form-field">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="Min price"
-                value={priceMin}
-                onChange={(e) => setPriceMin(e.target.value)}
+                value={formatPriceInput(priceMin)}
+                onChange={(e) => setPriceMin(stripPriceInput(e.target.value))}
               />
             </div>
             <div className="form-field">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="Max price *"
-                value={priceMax}
-                onChange={(e) => setPriceMax(e.target.value)}
+                value={formatPriceInput(priceMax)}
+                onChange={(e) => setPriceMax(stripPriceInput(e.target.value))}
                 required
               />
             </div>

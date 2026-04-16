@@ -48,6 +48,30 @@ export function stripPhone(value) {
   return value.replace(/\D/g, '').slice(0, 15)
 }
 
+// Format a price string for display in an input as the user types.
+// Accepts any string; strips non-digits (keeps one decimal point); returns "$1,234" or "$1,234.56".
+// Returns empty string for empty input.
+export function formatPriceInput(value) {
+  if (value === '' || value == null) return ''
+  // Keep digits and at most one decimal point
+  let s = String(value).replace(/[^0-9.]/g, '')
+  const firstDot = s.indexOf('.')
+  if (firstDot !== -1) {
+    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '')
+  }
+  if (s === '' || s === '.') return s ? '$' + s : ''
+  const [whole, decimal] = s.split('.')
+  const wholeFormatted = whole ? Number(whole).toLocaleString('en-US') : '0'
+  return decimal !== undefined ? `$${wholeFormatted}.${decimal}` : `$${wholeFormatted}`
+}
+
+// Strip $ and commas from a formatted price string, returning the raw numeric string.
+// Example: "$1,234,567.89" -> "1234567.89"
+export function stripPriceInput(value) {
+  if (value === '' || value == null) return ''
+  return String(value).replace(/[^0-9.]/g, '')
+}
+
 // Format a stored phone number for display, with country code prefix
 export function displayPhone(raw, countryCode = DEFAULT_COUNTRY_CODE) {
   if (!raw) return ''
