@@ -29,7 +29,7 @@ export default function Sellers() {
     setLoadingListings(true)
     const { data, error } = await supabase
       .from('properties')
-      .select('*, property_images(*)')
+      .select('*, property_images(*), property_units(*)')
       .eq('profile_id', profile.id)
       .order('created_at', { ascending: false })
 

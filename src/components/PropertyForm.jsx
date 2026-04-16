@@ -113,6 +113,19 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
   // Try sessionStorage draft first (per-id key for edits, generic for new)
   const draft = loadDraft(draftKey)
   // Use draft if available; otherwise fall back to editingProperty data; otherwise blank
+  // Convert DB unit rows into form state (strings so inputs can be empty)
+  const unitsFromDb = editingProperty?.property_units
+    ? [...editingProperty.property_units]
+        .sort((a, b) => (a.unit_number ?? 0) - (b.unit_number ?? 0))
+        .map((u) => ({
+          bedrooms: u.bedrooms != null ? String(u.bedrooms) : '',
+          bathrooms: u.bathrooms != null ? String(u.bathrooms) : '',
+          sqft: u.sqft != null ? String(u.sqft) : '',
+          rent: u.rent != null ? String(u.rent) : '',
+          occupancy: u.occupancy || 'vacant',
+        }))
+    : []
+
   const fromEdit = editingProperty ? {
     ...parseAddress(editingProperty.address),
     addrState: parseAddress(editingProperty.address).state,
@@ -120,6 +133,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     sellerType: editingProperty.seller_type || '',
     propertyType: editingProperty.property_type || '',
     numUnits: editingProperty.num_units ?? '',
+    units: unitsFromDb,
     occupancyStatus: editingProperty.occupancy_status || '',
     condition: editingProperty.condition || '',
     financing: editingProperty.financing || [],
