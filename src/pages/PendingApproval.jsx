@@ -21,7 +21,7 @@ export default function PendingApproval() {
     window.location.href = '/login'
   }
 
-  const isDeclined = profile?.declined === true
+  const isDeclined = profile?.role === 'declined' || profile?.declined === true
 
   return (
     <div className="pending-page">

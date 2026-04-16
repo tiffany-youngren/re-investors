@@ -113,7 +113,7 @@ export default function AdminDashboard() {
     if (!window.confirm('Revoke this user\'s access? They will be marked as Declined.')) return
     setActionInProgress(`revoke-${profileId}`)
     await runAdminAction('/api/admin-users', {
-      profileId, approved: false, role: 'visitor', declined: true,
+      profileId, approved: false, role: 'declined',
     })
     await fetchUsers()
     setActionInProgress('')
@@ -198,11 +198,12 @@ export default function AdminDashboard() {
 
   // ---------- FILTERED DATA ----------
   const filteredUsers = users.filter((u) => {
+    const isDeclined = u.role === 'declined' || u.declined === true
     if (userFilter === 'all') return true
     if (userFilter === 'members') return u.approved && u.role === 'member'
     if (userFilter === 'visitors') return u.approved && u.role === 'visitor'
-    if (userFilter === 'pending') return !u.approved && !u.declined
-    if (userFilter === 'declined') return !u.approved && u.declined === true
+    if (userFilter === 'pending') return !u.approved && !isDeclined
+    if (userFilter === 'declined') return isDeclined
     return true
   })
 
@@ -277,63 +278,78 @@ export default function AdminDashboard() {
                 {u.phone && <span>{displayPhone(u.phone, u.phone_country_code)}</span>}
                 {u.license_status && <span>{u.license_status}</span>}
                 {u.brokerage_name && <span>{u.brokerage_name}</span>}
-                {u.approved
-                  ? <span className={`admin-badge ${u.role === 'admin' ? 'badge-admin' : u.role === 'member' ? 'badge-member' : ''}`}>
+                {(() => {
+                  const isDeclined = u.role === 'declined' || u.declined === true
+                  if (isDeclined) {
+                    return <span className="admin-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Declined</span>
+                  }
+                  if (!u.approved) {
+                    return <span className="admin-badge badge-pending">Pending</span>
+                  }
+                  return (
+                    <span className={`admin-badge ${u.role === 'admin' ? 'badge-admin' : u.role === 'member' ? 'badge-member' : ''}`}>
                       {u.role || 'visitor'}
                     </span>
-                  : u.declined
-                    ? <span className="admin-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Declined</span>
-                    : <span className="admin-badge badge-pending">Pending</span>}
+                  )
+                })()}
               </div>
               <div className="admin-card-actions">
-                {!u.approved && !u.declined && (
-                  <>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => approveUser(u.id)}
-                      disabled={actionInProgress === `approve-${u.id}`}
-                    >
-                      {actionInProgress === `approve-${u.id}` ? '...' : 'Approve as Member'}
-                    </button>
-                    <button
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => makeVisitor(u.id)}
-                      disabled={actionInProgress === `visitor-${u.id}`}
-                    >
-                      {actionInProgress === `visitor-${u.id}` ? '...' : 'Approve as Visitor'}
-                    </button>
-                  </>
-                )}
-                {!u.approved && u.declined && (
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => approveUser(u.id)}
-                    disabled={actionInProgress === `approve-${u.id}`}
-                  >
-                    {actionInProgress === `approve-${u.id}` ? '...' : 'Reinstate as Member'}
-                  </button>
-                )}
-                {u.approved && (
-                  <>
-                    <select
-                      value={u.role || 'visitor'}
-                      onChange={(e) => changeRole(u.id, e.target.value)}
-                      disabled={actionInProgress === `role-${u.id}`}
-                      className="role-select"
-                    >
-                      <option value="visitor">Visitor</option>
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    <button
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => revokeApproval(u.id)}
-                      disabled={actionInProgress === `revoke-${u.id}`}
-                    >
-                      {actionInProgress === `revoke-${u.id}` ? '...' : 'Revoke'}
-                    </button>
-                  </>
-                )}
+                {(() => {
+                  const isDeclined = u.role === 'declined' || u.declined === true
+                  const isPending = !u.approved && !isDeclined
+                  return (
+                    <>
+                      {isPending && (
+                        <>
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => approveUser(u.id)}
+                            disabled={actionInProgress === `approve-${u.id}`}
+                          >
+                            {actionInProgress === `approve-${u.id}` ? '...' : 'Approve as Member'}
+                          </button>
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => makeVisitor(u.id)}
+                            disabled={actionInProgress === `visitor-${u.id}`}
+                          >
+                            {actionInProgress === `visitor-${u.id}` ? '...' : 'Approve as Visitor'}
+                          </button>
+                        </>
+                      )}
+                      {isDeclined && (
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => approveUser(u.id)}
+                          disabled={actionInProgress === `approve-${u.id}`}
+                        >
+                          {actionInProgress === `approve-${u.id}` ? '...' : 'Reinstate as Member'}
+                        </button>
+                      )}
+                      {u.approved && !isDeclined && (
+                        <>
+                          <select
+                            value={u.role || 'visitor'}
+                            onChange={(e) => changeRole(u.id, e.target.value)}
+                            disabled={actionInProgress === `role-${u.id}`}
+                            className="role-select"
+                          >
+                            <option value="visitor">Visitor</option>
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => revokeApproval(u.id)}
+                            disabled={actionInProgress === `revoke-${u.id}`}
+                          >
+                            {actionInProgress === `revoke-${u.id}` ? '...' : 'Revoke'}
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )
+                })()}
                 <button
                   className="btn btn-sm btn-danger"
                   onClick={() => deleteUser(u.user_id)}

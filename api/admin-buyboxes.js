@@ -44,12 +44,21 @@ export default async function handler(req, res) {
     const { buyBoxId, approved, flagged, flagReason, flagResponse } = req.body
     if (!buyBoxId) return res.status(400).json({ error: 'buyBoxId required' })
 
+    // Snapshot existing so we can detect flag → unflag transition
+    const { data: prevRow } = await supabase
+      .from('buy_boxes')
+      .select('id, approved, flag_reason')
+      .eq('id', buyBoxId)
+      .single()
+    const wasFlagged = !!prevRow?.flag_reason
+
     const updates = {}
     if (typeof approved === 'boolean') {
       updates.approved = approved
-      // Approving clears any prior flag
+      // Approving clears any prior flag (reason AND member response)
       if (approved === true) {
         updates.flag_reason = null
+        updates.flag_response = null
       }
     }
     if (flagged === true) {
@@ -60,26 +69,23 @@ export default async function handler(req, res) {
       updates.flag_response = flagResponse.slice(0, 1000)
     }
 
-    let { data: updated, error } = await supabase
-      .from('buy_boxes')
-      .update(updates)
-      .eq('id', buyBoxId)
-      .select('id, profile_id, approved')
-      .single()
+    async function tryUpdate(payload) {
+      return await supabase
+        .from('buy_boxes')
+        .update(payload)
+        .eq('id', buyBoxId)
+        .select('id, profile_id, approved, flag_reason')
+        .single()
+    }
 
-    // Retry without optional columns if they don't exist yet
+    let { data: updated, error } = await tryUpdate(updates)
     if (error) {
       const msg = String(error.message || '').toLowerCase()
       if (msg.includes('flag_reason') || msg.includes('flag_response')) {
         const fallback = { ...updates }
         delete fallback.flag_reason
         delete fallback.flag_response
-        const retry = await supabase
-          .from('buy_boxes')
-          .update(fallback)
-          .eq('id', buyBoxId)
-          .select('id, profile_id, approved')
-          .single()
+        const retry = await tryUpdate(fallback)
         updated = retry.data
         error = retry.error
       }
@@ -89,12 +95,15 @@ export default async function handler(req, res) {
     // Notify the owner on each transition
     if (updated?.profile_id) {
       let title = null, message = null
-      if (approved === true) {
+      if (flagged === true) {
+        title = 'Your buy box has been flagged'
+        message = `Your buy box was flagged by admin.${flagReason ? ' Reason: ' + flagReason : ''}`
+      } else if (approved === true && wasFlagged) {
+        title = 'Buy box flag removed'
+        message = 'Your buy box is back on the Buy Boxes page.'
+      } else if (approved === true && !wasFlagged) {
         title = 'Buy box approved'
         message = 'Your buy box was approved and is now visible on the Buy Boxes page.'
-      } else if (flagged === true) {
-        title = 'Buy box flagged'
-        message = 'Your buy box was flagged by admin and is no longer visible. Check your Profile for the reason.'
       }
       if (title) {
         await supabase.from('notifications').insert({

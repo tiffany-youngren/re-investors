@@ -34,7 +34,21 @@ function loginButtonHtml() {
 }
 
 async function sendStatusEmail(toEmail, firstName, kind) {
-  if (!RESEND_API_KEY || !toEmail) return { skipped: true }
+  console.log('[admin-users] sendStatusEmail attempt:', {
+    kind,
+    toEmail,
+    hasResendKey: !!RESEND_API_KEY,
+    fromEmail: FROM_EMAIL,
+  })
+
+  if (!RESEND_API_KEY) {
+    console.warn('[admin-users] RESEND_API_KEY not configured — email skipped')
+    return { skipped: true, reason: 'no-resend-key' }
+  }
+  if (!toEmail) {
+    console.warn('[admin-users] no recipient email — skipped')
+    return { skipped: true, reason: 'no-recipient' }
+  }
 
   const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : 'Hi there,'
   let subject, body
@@ -66,7 +80,8 @@ async function sendStatusEmail(toEmail, firstName, kind) {
       `
       break
     default:
-      return { skipped: true }
+      console.warn('[admin-users] unknown email kind:', kind)
+      return { skipped: true, reason: 'unknown-kind' }
   }
 
   const html = `
@@ -89,13 +104,16 @@ async function sendStatusEmail(toEmail, firstName, kind) {
         html,
       }),
     })
+    const text = await r.text()
+    let parsed
+    try { parsed = JSON.parse(text) } catch { parsed = text }
+    console.log('[admin-users] Resend response:', { status: r.status, body: parsed })
     if (!r.ok) {
-      const errText = await r.text().catch(() => 'unknown')
-      console.error('status email failed:', errText)
+      return { ok: false, status: r.status, body: parsed }
     }
-    return { ok: r.ok }
+    return { ok: true, body: parsed }
   } catch (e) {
-    console.error('status email error:', e?.message)
+    console.error('[admin-users] Resend fetch threw:', e?.message, e)
     return { ok: false, error: e?.message }
   }
 }
@@ -111,7 +129,20 @@ function detectTransition(prev, next) {
   if (!wasApproved && willApproved && newRole === 'visitor') return 'approved_visitor'
   if (wasApproved && willApproved && prevRole === 'member' && newRole === 'visitor') return 'downgraded_to_visitor'
   if (wasApproved && !willApproved) return 'revoked'
+  // Going straight to declined role from any state counts as revoked
+  if (newRole === 'declined' && prevRole !== 'declined') return 'revoked'
   return null
+}
+
+async function notifyUser(profileId, title, message, link = '/profile') {
+  if (!profileId || !title) return
+  const { error } = await supabase.from('notifications').insert({
+    profile_id: profileId,
+    title,
+    message,
+    link,
+  })
+  if (error) console.warn('[admin-users] notification insert failed:', error.message)
 }
 
 export default async function handler(req, res) {
@@ -151,11 +182,10 @@ export default async function handler(req, res) {
 
   // POST — update a user's role or approval status
   if (req.method === 'POST') {
-    const { profileId, approved, role, declined } = req.body
+    const { profileId, approved, role } = req.body
     if (!profileId) return res.status(400).json({ error: 'profileId required' })
 
-    // Snapshot the user's current state. Use '*' so we don't fail if a column
-    // (like 'declined') doesn't exist in this DB yet.
+    // Snapshot the user's current state.
     const { data: existing, error: existErr } = await supabase
       .from('profiles')
       .select('*')
@@ -169,7 +199,6 @@ export default async function handler(req, res) {
     const updates = {}
     if (typeof approved === 'boolean') updates.approved = approved
     if (role) updates.role = role
-    if (typeof declined === 'boolean') updates.declined = declined
 
     const { error: updateErr } = await supabase
       .from('profiles')
@@ -177,38 +206,22 @@ export default async function handler(req, res) {
       .eq('id', profileId)
 
     if (updateErr) {
-      // If the failure was specifically because the 'declined' column doesn't
-      // exist, retry without it so the rest of the update still succeeds.
-      const msg = String(updateErr.message || '').toLowerCase()
-      if (msg.includes('declined')) {
-        const fallback = { ...updates }
-        delete fallback.declined
-        const { error: retryErr } = await supabase
-          .from('profiles')
-          .update(fallback)
-          .eq('id', profileId)
-        if (retryErr) return res.status(500).json({ error: retryErr.message })
-      } else {
-        return res.status(500).json({ error: updateErr.message })
-      }
+      console.error('[admin-users] update failed:', updateErr.message)
+      return res.status(500).json({ error: updateErr.message })
     }
 
-    // Determine which email (if any) to send for this transition.
+    // Determine transition + send email + notification
     const transition = detectTransition(existing, {
       approved: typeof approved === 'boolean' ? approved : existing.approved,
       role: role || existing.role,
     })
 
-    let emailKind = transition
-    // Override: revoked + declined flag goes out as the "revoked" message
-    if (transition === 'revoked' && declined === true) emailKind = 'revoked'
-
-    if (emailKind && existing.email) {
-      sendStatusEmail(existing.email, existing.first_name, emailKind).catch(() => {})
+    let emailResult = null
+    if (transition && existing.email) {
+      emailResult = await sendStatusEmail(existing.email, existing.first_name, transition)
     }
 
-    // Drop an in-app notification too
-    if (transition && existing) {
+    if (transition) {
       let title = null, message = null
       if (transition === 'approved_member') {
         title = 'Approved as Member'
@@ -223,17 +236,10 @@ export default async function handler(req, res) {
         title = 'Access revoked'
         message = `If you have questions, email ${SUPPORT_EMAIL}.`
       }
-      if (title) {
-        await supabase.from('notifications').insert({
-          profile_id: profileId,
-          title,
-          message,
-          link: '/profile',
-        }).then(() => {}, () => {})
-      }
+      if (title) await notifyUser(profileId, title, message, '/profile')
     }
 
-    return res.status(200).json({ success: true, transition })
+    return res.status(200).json({ success: true, transition, emailResult })
   }
 
   // DELETE — remove a user entirely (auth + profile cascade)

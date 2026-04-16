@@ -44,6 +44,14 @@ export default async function handler(req, res) {
     const { propertyId, approved, flagged, flagReason } = req.body
     if (!propertyId) return res.status(400).json({ error: 'propertyId required' })
 
+    // Snapshot existing so we can detect a flag → unflag transition
+    const { data: prevRow } = await supabase
+      .from('properties')
+      .select('id, status, flag_reason, approved')
+      .eq('id', propertyId)
+      .single()
+    const wasFlagged = prevRow?.status === 'flagged' || !!prevRow?.flag_reason
+
     const updates = {}
     if (typeof approved === 'boolean') {
       updates.approved = approved
@@ -54,40 +62,48 @@ export default async function handler(req, res) {
       updates.status = 'flagged'
       if (flagReason) updates.flag_reason = String(flagReason).slice(0, 1000)
     }
-    // When unflagging (admin re-approves), clear the reason
-    if (approved === true) updates.flag_reason = null
+    // When unflagging (admin re-approves), clear the reason AND the member's response
+    if (approved === true) {
+      updates.flag_reason = null
+      updates.flag_response = null
+    }
 
-    let { data: updated, error } = await supabase
-      .from('properties')
-      .update(updates)
-      .eq('id', propertyId)
-      .select('id, address, profile_id, status')
-      .single()
-
-    // If flag_reason column doesn't exist yet, retry without it
-    if (error && String(error.message || '').toLowerCase().includes('flag_reason')) {
-      const fallback = { ...updates }
-      delete fallback.flag_reason
-      const retry = await supabase
+    async function tryUpdate(payload) {
+      return await supabase
         .from('properties')
-        .update(fallback)
+        .update(payload)
         .eq('id', propertyId)
-        .select('id, address, profile_id, status')
+        .select('id, address, profile_id, status, flag_reason')
         .single()
-      updated = retry.data
-      error = retry.error
+    }
+
+    let { data: updated, error } = await tryUpdate(updates)
+    // Retry without optional columns if they don't exist yet
+    if (error) {
+      const msg = String(error.message || '').toLowerCase()
+      if (msg.includes('flag_reason') || msg.includes('flag_response')) {
+        const fallback = { ...updates }
+        delete fallback.flag_reason
+        delete fallback.flag_response
+        const retry = await tryUpdate(fallback)
+        updated = retry.data
+        error = retry.error
+      }
     }
     if (error) return res.status(500).json({ error: error.message })
 
-    // Create a notification for the owner
+    // Notifications for the owner
     if (updated?.profile_id) {
       let title = null, message = null
-      if (updates.status === 'active') {
+      if (flagged === true) {
+        title = 'Your property has been flagged'
+        message = `Your listing at ${updated.address} was flagged by admin.${flagReason ? ' Reason: ' + flagReason : ''}`
+      } else if (approved === true && wasFlagged) {
+        title = 'Property flag removed'
+        message = `Your listing at ${updated.address} is back on the For Sale page.`
+      } else if (approved === true && !wasFlagged) {
         title = 'Listing approved'
         message = `Your listing at ${updated.address} has been approved and is now live on the For Sale page.`
-      } else if (updates.status === 'flagged') {
-        title = 'Listing flagged'
-        message = `Your listing at ${updated.address} was flagged by admin and is no longer visible. Please contact admin.`
       }
       if (title) {
         await supabase.from('notifications').insert({
@@ -95,7 +111,7 @@ export default async function handler(req, res) {
           title,
           message,
           link: '/profile',
-        })
+        }).then(() => {}, () => {})
       }
     }
 

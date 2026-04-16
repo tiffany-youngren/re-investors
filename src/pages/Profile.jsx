@@ -29,31 +29,78 @@ async function resizeAvatar(file, maxSize = 300) {
   })
 }
 
-function BuyBoxFlagPanel({ buyBox, onSubmit, pending }) {
-  const [text, setText] = useState(buyBox.flag_response || '')
+function FlagReviewPanel({ kind, item, onSubmitted }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState(item.flag_response || '')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const alreadyRequested = !!item.flag_response
+
+  async function submitReview() {
+    if (!text.trim()) { setError('Please write a short comment.'); return }
+    setSubmitting(true)
+    setError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/request-flag-review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({ kind, id: item.id, response: text.trim() }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setError(body?.error || 'Failed to submit review request.')
+      } else {
+        setOpen(false)
+        if (onSubmitted) onSubmitted()
+      }
+    } catch (e) {
+      setError(e?.message || 'Network error')
+    }
+    setSubmitting(false)
+  }
+
   return (
     <div className="profile-warning" style={{ marginTop: 8 }}>
-      <p><strong>Flagged by admin:</strong> {buyBox.flag_reason}</p>
-      <label htmlFor={`flag-resp-${buyBox.id}`} style={{ display: 'block', marginTop: 8, fontWeight: 600 }}>
-        Your response:
-      </label>
-      <textarea
-        id={`flag-resp-${buyBox.id}`}
-        rows={2}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Reply to the admin's flag..."
-        style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 4, border: '1px solid #fcd34d', fontFamily: 'inherit' }}
-      />
-      <button
-        type="button"
-        className="btn btn-sm"
-        style={{ marginTop: 6 }}
-        onClick={() => onSubmit(text.trim())}
-        disabled={pending}
-      >
-        {pending ? 'Saving...' : (buyBox.flag_response ? 'Update Response' : 'Send Response')}
-      </button>
+      <p><strong>Flagged by admin:</strong> {item.flag_reason}</p>
+      {alreadyRequested && (
+        <p style={{ marginTop: 8 }}>
+          <strong>Your response:</strong> {item.flag_response}
+        </p>
+      )}
+      {!open ? (
+        <button
+          type="button"
+          className="btn btn-sm"
+          style={{ marginTop: 8 }}
+          onClick={() => setOpen(true)}
+          disabled={alreadyRequested}
+        >
+          {alreadyRequested ? 'Review Requested' : 'Request Review'}
+        </button>
+      ) : (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Explain why this flag should be removed..."
+            style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #fcd34d', fontFamily: 'inherit' }}
+          />
+          {error && <p className="error-msg">{error}</p>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            <button type="button" className="btn btn-sm" onClick={submitReview} disabled={submitting}>
+              {submitting ? 'Sending...' : 'Submit Review Request'}
+            </button>
+            <button type="button" className="btn btn-sm btn-secondary" onClick={() => setOpen(false)} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -137,19 +184,6 @@ export default function Profile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-properties'] })
-    },
-  })
-
-  const updateBuyBoxResponseMutation = useMutation({
-    mutationFn: async ({ id, response }) => {
-      const { error } = await supabase
-        .from('buy_boxes')
-        .update({ flag_response: response })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-buy-boxes'] })
     },
   })
 
@@ -549,9 +583,11 @@ export default function Profile() {
                     )}
                   </p>
                   {p.status === 'flagged' && p.flag_reason && (
-                    <div className="profile-warning" style={{ marginTop: 8 }}>
-                      <p><strong>Flagged by admin:</strong> {p.flag_reason}</p>
-                    </div>
+                    <FlagReviewPanel
+                      kind="property"
+                      item={p}
+                      onSubmitted={() => queryClient.invalidateQueries({ queryKey: ['my-properties'] })}
+                    />
                   )}
                   <div className="listing-actions">
                     <Link to={`/sellers?edit=${p.id}`} className="btn btn-sm btn-secondary">Edit</Link>
@@ -623,7 +659,11 @@ export default function Profile() {
                         : <span className="admin-badge badge-pending">Pending</span>}
                   </p>
                   {bb.flag_reason && (
-                    <BuyBoxFlagPanel buyBox={bb} onSubmit={(text) => updateBuyBoxResponseMutation.mutate({ id: bb.id, response: text })} pending={updateBuyBoxResponseMutation.isPending} />
+                    <FlagReviewPanel
+                      kind="buy_box"
+                      item={bb}
+                      onSubmitted={() => queryClient.invalidateQueries({ queryKey: ['my-buy-boxes'] })}
+                    />
                   )}
                   <div className="listing-actions">
                     <Link to={`/buy-box/${bb.id}/edit`} className="btn btn-sm btn-secondary">Edit</Link>
