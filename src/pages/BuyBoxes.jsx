@@ -14,7 +14,7 @@ export default function BuyBoxes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('buy_boxes')
-        .select('*, profiles(first_name, last_name, avatar_url)')
+        .select('*, profiles(first_name, last_name, avatar_url, city, state)')
         .eq('approved', true)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -168,11 +168,20 @@ export default function BuyBoxes() {
               </div>
             )}
 
-            {selectedBox.profile_id && selectedBox.profile_id !== profile?.id && (
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            {selectedBox.profile_id && (
+              <div className="pd-section pd-seller" style={{ marginTop: 20 }}>
+                <h3>Posted By</h3>
+                <p className="pd-seller-name">
+                  {[selectedBox.profiles?.first_name, selectedBox.profiles?.last_name].filter(Boolean).join(' ') || 'Member'}
+                </p>
+                {(selectedBox.profiles?.city || selectedBox.profiles?.state) && (
+                  <p className="pd-seller-location">
+                    {[selectedBox.profiles?.city, selectedBox.profiles?.state].filter(Boolean).join(', ')}
+                  </p>
+                )}
                 <Link
                   to={`/member/${selectedBox.profile_id}?source=buy_box&id=${selectedBox.id}`}
-                  className="btn"
+                  className="btn btn-contact"
                 >
                   Contact {selectedBox.profiles?.first_name || 'Member'}
                 </Link>

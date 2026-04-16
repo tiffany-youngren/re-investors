@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -22,14 +22,18 @@ export default function MemberContact() {
   const { user, profile: myProfile } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const sourceType = searchParams.get('source') || null
-  const sourceId = searchParams.get('id') || null
+  const initialSourceType = searchParams.get('source') || ''
+  const initialSourceId = searchParams.get('id') || ''
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
+  // Regarding dropdown value: format `${type}:${id}`
+  const [regarding, setRegarding] = useState(
+    initialSourceType && initialSourceId ? `${initialSourceType}:${initialSourceId}` : ''
+  )
   const [submitting, setSubmitting] = useState(false)
-  const [success, setSuccess] = useState('')
+  const [submittedTo, setSubmittedTo] = useState(null) // first_name on success
   const [error, setError] = useState('')
 
   // Fetch the recipient member's profile
@@ -41,6 +45,38 @@ export default function MemberContact() {
         .select('id, first_name, last_name, avatar_url, city, state, investment_areas, license_status, brokerage_name, phone, phone_country_code')
         .eq('id', profileId)
         .single()
+      if (error) throw error
+      return data
+    },
+    enabled: !!profileId,
+  })
+
+  // Fetch this member's published property listings
+  const { data: properties = [] } = useQuery({
+    queryKey: ['member-properties', profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('properties')
+        .select('id, address, price')
+        .eq('profile_id', profileId)
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+    enabled: !!profileId,
+  })
+
+  // Fetch this member's approved buy boxes
+  const { data: buyBoxes = [] } = useQuery({
+    queryKey: ['member-buy-boxes', profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('buy_boxes')
+        .select('id, areas_looking')
+        .eq('profile_id', profileId)
+        .eq('approved', true)
+        .order('created_at', { ascending: false })
       if (error) throw error
       return data
     },
@@ -59,14 +95,21 @@ export default function MemberContact() {
   if (isLoading) return <div className="loading">Loading...</div>
   if (!member) return <div className="loading">Member not found.</div>
 
+  const hasContactItems = properties.length > 0 || buyBoxes.length > 0
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    setSuccess('')
+    if (!regarding) {
+      setError('Please select what you are contacting them about.')
+      return
+    }
     if (!name.trim() || !email.trim() || !message.trim()) {
       setError('Please fill out all fields.')
       return
     }
+    const [sourceType, sourceId] = regarding.split(':')
+
     setSubmitting(true)
     const result = await authFetch('/api/contact-member', {
       method: 'POST',
@@ -82,15 +125,21 @@ export default function MemberContact() {
     })
     setSubmitting(false)
     if (result?.success) {
-      setSuccess('Message sent! They will reply by email.')
-      setMessage('')
+      setSubmittedTo(member.first_name || 'them')
     } else {
       setError(result?.error || 'Failed to send message.')
     }
   }
 
   async function handleTextClick() {
-    // Log the event server-side (non-blocking)
+    // Log the event server-side (non-blocking). Include source if known.
+    let sourceType = null
+    let sourceId = null
+    if (regarding) {
+      const parts = regarding.split(':')
+      sourceType = parts[0]
+      sourceId = parts[1]
+    }
     authFetch('/api/contact-member', {
       method: 'POST',
       body: JSON.stringify({
@@ -100,7 +149,6 @@ export default function MemberContact() {
         sourceId,
       }),
     }).catch(() => {})
-    // Build the sms: link. Include country code if present.
     if (!member.phone) return
     const fullNumber = `${member.phone_country_code || '+1'}${member.phone}`
     window.location.href = `sms:${fullNumber}`
@@ -149,42 +197,95 @@ export default function MemberContact() {
         )}
 
         <h2 style={{ fontSize: '1.1rem', marginTop: 24 }}>Send a Message</h2>
-        <form onSubmit={handleSubmit}>
-          <label htmlFor="contactName">Your Name</label>
-          <input
-            id="contactName"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
 
-          <label htmlFor="contactEmail">Your Email</label>
-          <input
-            id="contactEmail"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+        <div className="profile-warning">
+          <p>
+            This form may only be used to inquire about a property listed on this site or to
+            offer a property in direct response to a buy box. All other solicitation is
+            prohibited and may result in loss of access.
+          </p>
+        </div>
 
-          <label htmlFor="contactMessage">Message</label>
-          <textarea
-            id="contactMessage"
-            rows={6}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={`Hi ${member.first_name || ''}, ...`}
-            required
-          />
+        {submittedTo ? (
+          <div className="profile-notice" style={{ marginTop: 16 }}>
+            <h2>Message Sent</h2>
+            <p>
+              Your message has been sent to {submittedTo}. They will respond directly to your email.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <label htmlFor="contactRegarding">Regarding *</label>
+            <select
+              id="contactRegarding"
+              value={regarding}
+              onChange={(e) => setRegarding(e.target.value)}
+              required
+            >
+              <option value="">Select a listing or buy box...</option>
+              {properties.length > 0 && (
+                <optgroup label="Property Listings">
+                  {properties.map((p) => (
+                    <option key={p.id} value={`property:${p.id}`}>
+                      {p.address} — ${Number(p.price).toLocaleString()}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {buyBoxes.length > 0 && (
+                <optgroup label="Buy Boxes">
+                  {buyBoxes.map((b) => {
+                    const areas = (b.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ')
+                    return (
+                      <option key={b.id} value={`buy_box:${b.id}`}>
+                        Buy Box: {areas || 'No areas'}
+                      </option>
+                    )
+                  })}
+                </optgroup>
+              )}
+            </select>
+            {!hasContactItems && (
+              <p className="field-note">
+                This member has no published listings or approved buy boxes to inquire about.
+              </p>
+            )}
 
-          {error && <p className="error-msg">{error}</p>}
-          {success && <p className="success-msg">{success}</p>}
+            <label htmlFor="contactName">Your Name</label>
+            <input
+              id="contactName"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
 
-          <button type="submit" className="btn" disabled={submitting}>
-            {submitting ? 'Sending...' : 'Send Message'}
-          </button>
-        </form>
+            <label htmlFor="contactEmail">Your Email</label>
+            <input
+              id="contactEmail"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <label htmlFor="contactMessage">Message</label>
+            <textarea
+              id="contactMessage"
+              rows={6}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={`Hi ${member.first_name || ''}, ...`}
+              required
+            />
+
+            {error && <p className="error-msg">{error}</p>}
+
+            <button type="submit" className="btn" disabled={submitting || !hasContactItems}>
+              {submitting ? 'Sending...' : 'Send Message'}
+            </button>
+          </form>
+        )}
 
         {member.phone && (
           <>

@@ -171,12 +171,22 @@ export default function PropertyDetail({ property, onClose }) {
             <p className="pd-seller-name">
               {[seller.first_name, seller.last_name].filter(Boolean).join(' ') || 'Member'}
             </p>
-            {seller.license_status === 'licensed' && seller.brokerage_name && (
-              <p className="pd-seller-brokerage">{seller.brokerage_name}</p>
-            )}
             {(seller.city || seller.state) && (
               <p className="pd-seller-location">
                 {[seller.city, seller.state].filter(Boolean).join(', ')}
+              </p>
+            )}
+            {seller.license_status === 'licensed' && seller.brokerage_name && (
+              <p className="pd-seller-brokerage">{seller.brokerage_name}</p>
+            )}
+            {seller.license_status && (
+              <p className="pd-seller-meta">
+                {seller.license_status === 'licensed' ? 'Licensed Agent/Broker' : 'Unlicensed'}
+              </p>
+            )}
+            {property.seller_type && (
+              <p className="pd-seller-meta" style={{ textTransform: 'capitalize' }}>
+                Seller type: {property.seller_type}
               </p>
             )}
             <Link
