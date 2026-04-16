@@ -102,11 +102,22 @@ export default function AdminDashboard() {
   }
 
   async function revokeApproval(profileId) {
-    if (!window.confirm('Revoke this user\'s access?')) return
+    if (!window.confirm('Revoke this user\'s access? They will be marked as Declined.')) return
     setActionInProgress(`revoke-${profileId}`)
     await apiFetch('/api/admin-users', {
       method: 'POST',
-      body: JSON.stringify({ profileId, approved: false, role: 'visitor' }),
+      body: JSON.stringify({ profileId, approved: false, role: 'visitor', declined: true }),
+    })
+    await fetchUsers()
+    setActionInProgress('')
+  }
+
+  async function deleteUser(userId) {
+    if (!window.confirm('This will permanently delete this user and all their data. They can create a new account in the future. Continue?')) return
+    setActionInProgress(`delete-${userId}`)
+    await apiFetch('/api/admin-users', {
+      method: 'DELETE',
+      body: JSON.stringify({ userId }),
     })
     await fetchUsers()
     setActionInProgress('')
@@ -203,8 +214,8 @@ export default function AdminDashboard() {
     if (userFilter === 'all') return true
     if (userFilter === 'members') return u.approved && u.role === 'member'
     if (userFilter === 'visitors') return u.approved && u.role === 'visitor'
-    if (userFilter === 'pending') return !u.approved
-    if (userFilter === 'declined') return u.role === 'declined'
+    if (userFilter === 'pending') return !u.approved && !u.declined
+    if (userFilter === 'declined') return !u.approved && u.declined === true
     return true
   })
 
@@ -279,14 +290,16 @@ export default function AdminDashboard() {
                 {u.phone && <span>{displayPhone(u.phone, u.phone_country_code)}</span>}
                 {u.license_status && <span>{u.license_status}</span>}
                 {u.brokerage_name && <span>{u.brokerage_name}</span>}
-                {!u.approved
-                  ? <span className="admin-badge badge-pending">Pending</span>
-                  : <span className={`admin-badge ${u.role === 'admin' ? 'badge-admin' : u.role === 'member' ? 'badge-member' : ''}`}>
+                {u.approved
+                  ? <span className={`admin-badge ${u.role === 'admin' ? 'badge-admin' : u.role === 'member' ? 'badge-member' : ''}`}>
                       {u.role || 'visitor'}
-                    </span>}
+                    </span>
+                  : u.declined
+                    ? <span className="admin-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Declined</span>
+                    : <span className="admin-badge badge-pending">Pending</span>}
               </div>
               <div className="admin-card-actions">
-                {!u.approved && (
+                {!u.approved && !u.declined && (
                   <>
                     <button
                       className="btn btn-sm"
@@ -302,14 +315,16 @@ export default function AdminDashboard() {
                     >
                       {actionInProgress === `visitor-${u.id}` ? '...' : 'Approve as Visitor'}
                     </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => denyUser(u.user_id)}
-                      disabled={actionInProgress === `deny-${u.user_id}`}
-                    >
-                      {actionInProgress === `deny-${u.user_id}` ? '...' : 'Deny'}
-                    </button>
                   </>
+                )}
+                {!u.approved && u.declined && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => approveUser(u.id)}
+                    disabled={actionInProgress === `approve-${u.id}`}
+                  >
+                    {actionInProgress === `approve-${u.id}` ? '...' : 'Reinstate as Member'}
+                  </button>
                 )}
                 {u.approved && (
                   <>
@@ -324,7 +339,7 @@ export default function AdminDashboard() {
                       <option value="admin">Admin</option>
                     </select>
                     <button
-                      className="btn btn-sm btn-danger"
+                      className="btn btn-sm btn-secondary"
                       onClick={() => revokeApproval(u.id)}
                       disabled={actionInProgress === `revoke-${u.id}`}
                     >
@@ -332,6 +347,13 @@ export default function AdminDashboard() {
                     </button>
                   </>
                 )}
+                <button
+                  className="btn btn-sm btn-danger"
+                  onClick={() => deleteUser(u.user_id)}
+                  disabled={actionInProgress === `delete-${u.user_id}`}
+                >
+                  {actionInProgress === `delete-${u.user_id}` ? '...' : 'Delete'}
+                </button>
               </div>
             </div>
           ))}

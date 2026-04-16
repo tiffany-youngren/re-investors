@@ -3,7 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import Footer from './components/Footer'
 import Home from './pages/Home'
+import About from './pages/About'
 import Login from './pages/Login'
 import PendingApproval from './pages/PendingApproval'
 import Buyers from './pages/Buyers'
@@ -30,6 +32,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
+          <div className="app-shell">
           <Routes>
             {/* Public routes without Layout */}
             <Route path="/login" element={<Login />} />
@@ -39,6 +42,7 @@ function App() {
             {/* All routes with Layout (navbar) */}
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
               <Route
                 path="/buyers"
                 element={
@@ -105,6 +109,8 @@ function App() {
               />
             </Route>
           </Routes>
+          <Footer />
+          </div>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

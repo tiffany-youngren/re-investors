@@ -36,6 +36,7 @@ export default function Navbar() {
         </button>
 
         <div className={`nav-links ${menuOpen ? 'nav-links-open' : ''}`}>
+          <Link to="/about" className={isActive('/about')} onClick={() => setMenuOpen(false)}>About</Link>
           {isLoggedIn ? (
             <>
               <Link to="/buyers" className={isActive('/buyers')} onClick={() => setMenuOpen(false)}>For Sale</Link>

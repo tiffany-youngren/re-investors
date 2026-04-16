@@ -86,19 +86,22 @@ export default async function handler(req, res) {
 
   // POST — update a user's role or approval status
   if (req.method === 'POST') {
-    const { profileId, approved, role } = req.body
+    const { profileId, approved, role, declined } = req.body
     if (!profileId) return res.status(400).json({ error: 'profileId required' })
 
     // Snapshot the user's current state so we can detect a pending → approved transition
     const { data: existing } = await supabase
       .from('profiles')
-      .select('approved, email, first_name')
+      .select('approved, declined, email, first_name')
       .eq('id', profileId)
       .single()
 
     const updates = {}
     if (typeof approved === 'boolean') updates.approved = approved
     if (role) updates.role = role
+    if (typeof declined === 'boolean') updates.declined = declined
+    // If an admin is approving a user, clear any prior declined flag.
+    if (approved === true) updates.declined = false
 
     const { error } = await supabase
       .from('profiles')

@@ -4,31 +4,40 @@ import { useAuth } from '../context/AuthContext'
 export default function PendingApproval() {
   const { user, profile, loading, roleLoading, signOut } = useAuth()
 
-  // Show spinner while auth or profile is loading
   if (loading || roleLoading) {
     return <div className="loading">Loading...</div>
   }
 
-  // Not logged in — redirect to login
   if (!user) {
     return <Navigate to="/login" replace />
   }
 
-  // Already approved — send them to buyers
   if (profile && profile.approved) {
     return <Navigate to="/buyers" replace />
   }
 
   async function handleLogOut() {
     await signOut()
-    window.location.href = '/'
+    window.location.href = '/login'
   }
+
+  const isDeclined = profile?.declined === true
 
   return (
     <div className="pending-page">
-      <h1>Pending Approval</h1>
-      <p>Your account has been created but is waiting for admin approval.</p>
-      <p>You'll be able to access the site once an admin approves your membership.</p>
+      {isDeclined ? (
+        <>
+          <h1>Access Revoked</h1>
+          <p>Your access to the Based in Billings RE Investors portal has been revoked by an admin.</p>
+          <p>If you believe this was a mistake, please contact an admin directly.</p>
+        </>
+      ) : (
+        <>
+          <h1>Pending Approval</h1>
+          <p>Your account has been created but is waiting for admin approval.</p>
+          <p>You'll be able to access the site once an admin approves your membership.</p>
+        </>
+      )}
       <button onClick={handleLogOut} className="btn btn-secondary">Log Out</button>
     </div>
   )
