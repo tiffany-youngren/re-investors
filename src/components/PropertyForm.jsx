@@ -72,10 +72,29 @@ function getDraftKey(propertyId) {
   return propertyId ? `draft-property-form-${propertyId}` : 'draft-property-form'
 }
 
+// Unit field contract — these keys MUST match the property_units DB columns exactly
+// so form state round-trips cleanly between load → render → save with no mapping.
+// DB columns: bedrooms, bathrooms, square_feet, rent, occupancy_status
+function normalizeUnit(u) {
+  return {
+    bedrooms: u?.bedrooms ?? '',
+    bathrooms: u?.bathrooms ?? '',
+    square_feet: u?.square_feet ?? '',
+    rent: u?.rent ?? '',
+    occupancy_status: u?.occupancy_status ?? 'vacant',
+  }
+}
+
 function loadDraft(key) {
   try {
     const raw = sessionStorage.getItem(key)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // Normalize any stale unit shapes to the canonical key set
+    if (Array.isArray(parsed?.units)) {
+      parsed.units = parsed.units.map(normalizeUnit)
+    }
+    return parsed
   } catch { return null }
 }
 
@@ -88,7 +107,7 @@ function clearDraftStorage(key) {
 }
 
 function emptyUnit() {
-  return { bedrooms: '', bathrooms: '', square_feet: '', rent: '', occupancy_status: 'vacant' }
+  return normalizeUnit({})
 }
 
 // Parse "{street}, {city}, {ST} {zip}" back into parts
@@ -114,7 +133,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, o
   // Try sessionStorage draft first (per-id key for edits, generic for new)
   const draft = loadDraft(draftKey)
   // Use draft if available; otherwise fall back to editingProperty data; otherwise blank
-  // Convert DB unit rows into form state (strings so inputs can be empty)
+  // Convert DB unit rows into form state. Keys already match (DB columns === form state).
   const unitsFromDb = editingProperty?.property_units
     ? [...editingProperty.property_units]
         .sort((a, b) => (a.unit_number ?? 0) - (b.unit_number ?? 0))
@@ -401,8 +420,6 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, o
       status: targetStatus,
     }
 
-    console.log('[PropertyForm] Saving property:', propertyData)
-
     let propertyId
     if (isEditing) {
       const { error: updateError } = await supabase
@@ -418,7 +435,8 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, o
     } else {
       const { data: property, error: insertError } = await supabase
         .from('properties')
-        .insert({ ...propertyData, profile_id: profile.id })
+        // New listings always start unapproved — admin must approve before they show on For Sale.
+        .insert({ ...propertyData, profile_id: profile.id, approved: false })
         .select()
         .single()
       if (insertError) {
@@ -429,16 +447,15 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, o
       propertyId = property.id
     }
 
-    // Save unit details for multi-family (replace all when editing)
+    // Save unit details for multi-family (replace all when editing).
+    // Form state keys are identical to property_units DB columns, so no mapping is needed.
     if (propertyType === 'multi-family' && units.length > 0) {
-      console.log('[PropertyForm] Saving units:', units)
       if (isEditing) {
         const { error: delErr } = await supabase
           .from('property_units')
           .delete()
           .eq('property_id', propertyId)
         if (delErr) {
-          console.error('[PropertyForm] property_units delete failed:', delErr)
           setError(`Failed to clear old unit data: ${delErr.message}`)
           setSubmitting(false)
           return
@@ -447,24 +464,20 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit, o
       const unitRows = units.map((u, i) => ({
         property_id: propertyId,
         unit_number: i + 1,
-        bedrooms: u.bedrooms ? parseInt(u.bedrooms, 10) : null,
-        bathrooms: u.bathrooms ? parseFloat(u.bathrooms) : null,
-        square_feet: u.square_feet ? parseInt(u.square_feet, 10) : null,
-        rent: u.rent ? parseFloat(u.rent) : null,
+        bedrooms: u.bedrooms !== '' && u.bedrooms != null ? parseInt(u.bedrooms, 10) : null,
+        bathrooms: u.bathrooms !== '' && u.bathrooms != null ? parseFloat(u.bathrooms) : null,
+        square_feet: u.square_feet !== '' && u.square_feet != null ? parseInt(u.square_feet, 10) : null,
+        rent: u.rent !== '' && u.rent != null ? parseFloat(u.rent) : null,
         occupancy_status: u.occupancy_status || null,
       }))
-      console.log('[PropertyForm] unitRows to insert:', unitRows)
-      const { data: insertedUnits, error: unitsErr } = await supabase
+      const { error: unitsErr } = await supabase
         .from('property_units')
         .insert(unitRows)
-        .select()
       if (unitsErr) {
-        console.error('[PropertyForm] property_units insert failed:', unitsErr)
         setError(`Unit details failed to save: ${unitsErr.message}`)
         setSubmitting(false)
         return
       }
-      console.log('[PropertyForm] property_units inserted:', insertedUnits)
     }
 
     // Handle removed existing images (when editing)
