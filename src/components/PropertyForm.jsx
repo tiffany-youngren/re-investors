@@ -126,9 +126,13 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
         }))
     : []
 
+  // Prefer split address columns if present; fall back to parsing the combined `address` string
+  const parsed = parseAddress(editingProperty?.address)
   const fromEdit = editingProperty ? {
-    ...parseAddress(editingProperty.address),
-    addrState: parseAddress(editingProperty.address).state,
+    street: editingProperty.street_address || parsed.street,
+    city: editingProperty.city || parsed.city,
+    addrState: editingProperty.state || parsed.state,
+    zip: editingProperty.zip_code || parsed.zip,
     price: editingProperty.price ?? '',
     sellerType: editingProperty.seller_type || '',
     propertyType: editingProperty.property_type || '',
@@ -371,6 +375,12 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     const fullAddress = `${street.trim()}, ${city.trim()}, ${addrState} ${zip.trim()}`
 
     const propertyData = {
+      // Split address columns (new schema)
+      street_address: street.trim() || null,
+      city: city.trim() || null,
+      state: addrState || null,
+      zip_code: zip.trim() || null,
+      // Combined address (legacy — kept for display compatibility)
       address: fullAddress,
       price: price ? parseFloat(price) : null,
       seller_type: sellerType || null,
@@ -388,6 +398,8 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
       expires_at: expiresAt || null,
       status: targetStatus,
     }
+
+    console.log('[PropertyForm] Saving property:', propertyData)
 
     let propertyId
     if (isEditing) {
@@ -417,8 +429,18 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
 
     // Save unit details for multi-family (replace all when editing)
     if (propertyType === 'multi-family' && units.length > 0) {
+      console.log('[PropertyForm] Saving units:', units)
       if (isEditing) {
-        await supabase.from('property_units').delete().eq('property_id', propertyId)
+        const { error: delErr } = await supabase
+          .from('property_units')
+          .delete()
+          .eq('property_id', propertyId)
+        if (delErr) {
+          console.error('[PropertyForm] property_units delete failed:', delErr)
+          setError(`Failed to clear old unit data: ${delErr.message}`)
+          setSubmitting(false)
+          return
+        }
       }
       const unitRows = units.map((u, i) => ({
         property_id: propertyId,
@@ -429,7 +451,18 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
         rent: u.rent ? parseFloat(u.rent) : null,
         occupancy: u.occupancy || null,
       }))
-      await supabase.from('property_units').insert(unitRows)
+      console.log('[PropertyForm] unitRows to insert:', unitRows)
+      const { data: insertedUnits, error: unitsErr } = await supabase
+        .from('property_units')
+        .insert(unitRows)
+        .select()
+      if (unitsErr) {
+        console.error('[PropertyForm] property_units insert failed:', unitsErr)
+        setError(`Unit details failed to save: ${unitsErr.message}`)
+        setSubmitting(false)
+        return
+      }
+      console.log('[PropertyForm] property_units inserted:', insertedUnits)
     }
 
     // Handle removed existing images (when editing)
