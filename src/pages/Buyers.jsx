@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PropertyCard from '../components/PropertyCard'
+import PropertyDetail from '../components/PropertyDetail'
+
+const SELECTED_KEY = 'buyers-selected-property-id'
 
 export default function Buyers() {
   const { profile } = useAuth()
@@ -12,12 +15,15 @@ export default function Buyers() {
   const [filterType, setFilterType] = useState('')
   const [filterCondition, setFilterCondition] = useState('')
   const [filterOccupancy, setFilterOccupancy] = useState('')
+  const [selectedId, setSelectedId] = useState(() => {
+    try { return sessionStorage.getItem(SELECTED_KEY) } catch { return null }
+  })
 
   useEffect(() => {
     async function fetchProperties() {
       const { data, error } = await supabase
         .from('properties')
-        .select('*, property_images(*), profiles(first_name, last_name, phone, brokerage_name)')
+        .select('*, property_images(*), property_units(*), profiles(first_name, last_name, phone, brokerage_name)')
         .eq('status', 'published')
         .order('created_at', { ascending: false })
 
@@ -31,12 +37,24 @@ export default function Buyers() {
     fetchProperties()
   }, [])
 
+  function openDetail(id) {
+    setSelectedId(id)
+    try { sessionStorage.setItem(SELECTED_KEY, id) } catch {}
+  }
+
+  function closeDetail() {
+    setSelectedId(null)
+    try { sessionStorage.removeItem(SELECTED_KEY) } catch {}
+  }
+
   const filtered = properties.filter((p) => {
     if (filterType && p.property_type !== filterType) return false
     if (filterCondition && p.condition !== filterCondition) return false
     if (filterOccupancy && p.occupancy_status !== filterOccupancy) return false
     return true
   })
+
+  const selectedProperty = selectedId ? properties.find((p) => p.id === selectedId) : null
 
   return (
     <div className="buyers-page">
@@ -102,9 +120,17 @@ export default function Buyers() {
 
       <div className="property-grid">
         {filtered.map((property) => (
-          <PropertyCard key={property.id} property={property} />
+          <PropertyCard
+            key={property.id}
+            property={property}
+            onClick={() => openDetail(property.id)}
+          />
         ))}
       </div>
+
+      {selectedProperty && (
+        <PropertyDetail property={selectedProperty} onClose={closeDetail} />
+      )}
     </div>
   )
 }

@@ -67,21 +67,23 @@ function createThumbnail(file) {
   })
 }
 
-const DRAFT_KEY = 'draft-property-form'
+function getDraftKey(propertyId) {
+  return propertyId ? `draft-property-form-${propertyId}` : 'draft-property-form'
+}
 
-function loadDraft() {
+function loadDraft(key) {
   try {
-    const raw = sessionStorage.getItem(DRAFT_KEY)
+    const raw = sessionStorage.getItem(key)
     return raw ? JSON.parse(raw) : null
   } catch { return null }
 }
 
-function saveDraftToStorage(data) {
-  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data)) } catch {}
+function saveDraftToStorage(key, data) {
+  try { sessionStorage.setItem(key, JSON.stringify(data)) } catch {}
 }
 
-function clearDraftStorage() {
-  try { sessionStorage.removeItem(DRAFT_KEY) } catch {}
+function clearDraftStorage(key) {
+  try { sessionStorage.removeItem(key) } catch {}
 }
 
 function emptyUnit() {
@@ -107,9 +109,11 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
   const { profile } = useAuth()
   const isLicensed = profile?.license_status === 'licensed'
   const isEditing = Boolean(editingProperty)
-  // Only use sessionStorage draft for new listings (not edits)
-  const draft = isEditing ? null : loadDraft()
-  const initial = editingProperty ? {
+  const draftKey = getDraftKey(editingProperty?.id)
+  // Try sessionStorage draft first (per-id key for edits, generic for new)
+  const draft = loadDraft(draftKey)
+  // Use draft if available; otherwise fall back to editingProperty data; otherwise blank
+  const fromEdit = editingProperty ? {
     ...parseAddress(editingProperty.address),
     addrState: parseAddress(editingProperty.address).state,
     price: editingProperty.price ?? '',
@@ -125,7 +129,8 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     estimatedArv: editingProperty.estimated_arv ?? '',
     countyRecordsUrl: editingProperty.county_records_url || '',
     virtualTourUrl: editingProperty.virtual_tour_url || '',
-  } : (draft || {})
+  } : null
+  const initial = draft || fromEdit || {}
 
   const [street, setStreet] = useState(initial?.street || '')
   const [city, setCity] = useState(initial?.city || '')
@@ -145,32 +150,27 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
   const [estimatedArv, setEstimatedArv] = useState(initial?.estimatedArv ?? '')
   const [countyRecordsUrl, setCountyRecordsUrl] = useState(initial?.countyRecordsUrl || '')
   const [virtualTourUrl, setVirtualTourUrl] = useState(initial?.virtualTourUrl || '')
-  // Existing images from DB (only when editing)
-  const [existingImages, setExistingImages] = useState(
-    isEditing
-      ? [...(editingProperty.property_images || [])].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-      : []
+  // Unified image list. Each item is either:
+  //   { kind: 'existing', id, image_url }
+  //   { kind: 'new', file, preview, key }
+  const [imageItems, setImageItems] = useState(() => {
+    if (!isEditing) return []
+    return [...(editingProperty.property_images || [])]
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+      .map((img) => ({ kind: 'existing', id: img.id, image_url: img.image_url }))
+  })
+  // Snapshot of original existing image IDs (so we can detect removals on save)
+  const originalImageIdsRef = useRef(
+    isEditing ? (editingProperty.property_images || []).map((img) => img.id) : []
   )
-  const [images, setImages] = useState([])
-  const [previews, setPreviews] = useState([])
+  const newImageKeyRef = useRef(0)
   const [error, setError] = useState('')
   const [fhaWarning, setFhaWarning] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [dragIndex, setDragIndex] = useState(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
   const [copyMenuOpen, setCopyMenuOpen] = useState(null)
   const debounceRef = useRef(null)
-
-  // Generate previews when images change
-  useEffect(() => {
-    let cancelled = false
-    async function gen() {
-      const urls = await Promise.all(images.map(createThumbnail))
-      if (!cancelled) setPreviews(urls)
-    }
-    if (images.length > 0) gen()
-    else setPreviews([])
-    return () => { cancelled = true }
-  }, [images])
 
   // Sync units array when numUnits changes for multi-family
   useEffect(() => {
@@ -184,15 +184,14 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     }
   }, [numUnits, propertyType])
 
-  // Debounced draft save (only for new listings, not edits)
+  // Debounced draft save — saves under a per-id key for edits, generic key for new
   const flushDraft = useCallback(() => {
-    if (isEditing) return
-    saveDraftToStorage({
+    saveDraftToStorage(draftKey, {
       street, city, addrState, zip, price, sellerType, propertyType,
       numUnits, units, occupancyStatus, condition, financing, description,
       repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl,
     })
-  }, [isEditing, street, city, addrState, zip, price, sellerType, propertyType, numUnits, units, occupancyStatus, condition, financing, description, repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl])
+  }, [draftKey, street, city, addrState, zip, price, sellerType, propertyType, numUnits, units, occupancyStatus, condition, financing, description, repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -218,43 +217,62 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
       : '')
   }
 
-  function handleImageSelect(e) {
+  async function handleImageSelect(e) {
     const files = Array.from(e.target.files)
-    const total = existingImages.length + images.length + files.length
-    if (total > 10) {
-      setError(`Maximum 10 images. You have ${existingImages.length + images.length} and tried to add ${files.length}.`)
+    if (imageItems.length + files.length > 10) {
+      setError(`Maximum 10 images. You have ${imageItems.length} and tried to add ${files.length}.`)
+      e.target.value = ''
       return
     }
-    setImages((prev) => [...prev, ...files])
+    const newItems = await Promise.all(files.map(async (file) => {
+      const preview = await createThumbnail(file)
+      newImageKeyRef.current += 1
+      return { kind: 'new', file, preview, key: `new-${newImageKeyRef.current}` }
+    }))
+    setImageItems((prev) => [...prev, ...newItems])
     setError('')
+    e.target.value = ''
   }
 
-  function removeExistingImage(id) {
-    setExistingImages((prev) => prev.filter((img) => img.id !== id))
+  function removeImageAt(index) {
+    setImageItems((prev) => prev.filter((_, i) => i !== index))
   }
 
-  function removeNewImage(index) {
-    setImages((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  function handleDragStart(index) {
+  function handleDragStart(e, index) {
     setDragIndex(index)
+    // Required for Firefox to start the drag
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move'
+      try { e.dataTransfer.setData('text/plain', String(index)) } catch {}
+    }
   }
 
   function handleDragOver(e, index) {
     e.preventDefault()
-    if (dragIndex === null || dragIndex === index) return
-    setImages((prev) => {
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }
+
+  function handleDrop(e, dropIndex) {
+    e.preventDefault()
+    if (dragIndex === null || dragIndex === dropIndex) {
+      setDragIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+    setImageItems((prev) => {
       const next = [...prev]
       const [moved] = next.splice(dragIndex, 1)
-      next.splice(index, 0, moved)
+      next.splice(dropIndex, 0, moved)
       return next
     })
-    setDragIndex(index)
+    setDragIndex(null)
+    setDragOverIndex(null)
   }
 
   function handleDragEnd() {
     setDragIndex(null)
+    setDragOverIndex(null)
   }
 
   function updateUnit(index, field, value) {
@@ -272,7 +290,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
   }
 
   function resetForm() {
-    clearDraftStorage()
+    clearDraftStorage(draftKey)
     setStreet('')
     setCity('')
     setAddrState('')
@@ -291,8 +309,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     setEstimatedArv('')
     setCountyRecordsUrl('')
     setVirtualTourUrl('')
-    setExistingImages([])
-    setImages([])
+    setImageItems([])
     setSubmitting(false)
   }
 
@@ -307,7 +324,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     if (condition === 'fixer' && !repairsNeeded.trim()) {
       return 'Repairs needed is required when condition is fixer.'
     }
-    if (existingImages.length + images.length < 1) return 'At least 1 image is required.'
+    if (imageItems.length < 1) return 'At least 1 image is required.'
     const wordCount = countWords(description)
     if (wordCount > 300) return `Description is ${wordCount} words. Maximum is 300.`
     const violations = checkFHAViolations(description)
@@ -389,11 +406,9 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
 
     // Handle removed existing images (when editing)
     if (isEditing) {
-      const originalImageIds = (editingProperty.property_images || []).map((img) => img.id)
-      const keptIds = existingImages.map((img) => img.id)
-      const removedIds = originalImageIds.filter((id) => !keptIds.includes(id))
+      const keptIds = imageItems.filter((it) => it.kind === 'existing').map((it) => it.id)
+      const removedIds = originalImageIdsRef.current.filter((id) => !keptIds.includes(id))
       if (removedIds.length > 0) {
-        // Get URLs to delete from storage
         const { data: toDelete } = await supabase
           .from('property_images')
           .select('image_url')
@@ -412,45 +427,44 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
         }
         await supabase.from('property_images').delete().in('id', removedIds)
       }
+    }
 
-      // Update display_order on existing kept images
-      for (let i = 0; i < existingImages.length; i++) {
+    // Walk imageItems in order — update existing display_order, upload new ones
+    for (let i = 0; i < imageItems.length; i++) {
+      const item = imageItems[i]
+      if (item.kind === 'existing') {
         await supabase
           .from('property_images')
           .update({ display_order: i })
-          .eq('id', existingImages[i].id)
+          .eq('id', item.id)
+      } else {
+        const resized = await resizeImage(item.file)
+        const fileName = `${propertyId}/${Date.now()}-${i}.jpg`
+
+        const { error: uploadError } = await supabase.storage
+          .from('property-images')
+          .upload(fileName, resized, { contentType: 'image/jpeg' })
+
+        if (uploadError) {
+          setError(`Image upload failed: ${uploadError.message}`)
+          setSubmitting(false)
+          return
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('property-images')
+          .getPublicUrl(fileName)
+
+        await supabase.from('property_images').insert({
+          property_id: propertyId,
+          image_url: publicUrl,
+          display_order: i,
+        })
       }
-    }
-
-    // Upload new images, continuing display_order after existing
-    const startIndex = existingImages.length
-    for (let i = 0; i < images.length; i++) {
-      const file = images[i]
-      const resized = await resizeImage(file)
-      const fileName = `${propertyId}/${Date.now()}-${i}.jpg`
-
-      const { error: uploadError } = await supabase.storage
-        .from('property-images')
-        .upload(fileName, resized, { contentType: 'image/jpeg' })
-
-      if (uploadError) {
-        setError(`Image upload failed: ${uploadError.message}`)
-        setSubmitting(false)
-        return
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('property-images')
-        .getPublicUrl(fileName)
-
-      await supabase.from('property_images').insert({
-        property_id: propertyId,
-        image_url: publicUrl,
-        display_order: startIndex + i,
-      })
     }
 
     if (!isEditing) resetForm()
+    else clearDraftStorage(draftKey)
     setSubmitting(false)
     if (onSaved) onSaved()
   }
@@ -658,37 +672,38 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
         <input id="virtualTourUrl" type="url" value={virtualTourUrl} onChange={(e) => setVirtualTourUrl(e.target.value)} placeholder="https://..." />
 
         <label>Property Images (1-10) *</label>
-        <input type="file" accept="image/*" multiple onChange={handleImageSelect} />
-        <p className="field-note">First image is the primary photo. Drag new images to reorder.</p>
+        <p className="field-note">First image is the primary photo. Drag images to reorder.</p>
 
-        {(existingImages.length > 0 || previews.length > 0) && (
-          <div className="image-thumb-grid">
-            {existingImages.map((img, i) => (
-              <div key={`existing-${img.id}`} className={`image-thumb-item${i === 0 ? ' primary' : ''}`}>
-                <img src={img.image_url} alt={`Existing ${i + 1}`} />
+        <div className="image-thumb-grid">
+          <label className="image-drop-zone">
+            <input type="file" accept="image/*" multiple onChange={handleImageSelect} hidden />
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span>Add Images</span>
+          </label>
+          {imageItems.map((item, i) => {
+            const src = item.kind === 'existing' ? item.image_url : item.preview
+            const itemKey = item.kind === 'existing' ? `existing-${item.id}` : item.key
+            return (
+              <div
+                key={itemKey}
+                className={`image-thumb-item${dragIndex === i ? ' dragging' : ''}${dragOverIndex === i && dragIndex !== i ? ' drag-over' : ''}${i === 0 ? ' primary' : ''}`}
+                draggable
+                onDragStart={(e) => handleDragStart(e, i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={(e) => handleDrop(e, i)}
+                onDragEnd={handleDragEnd}
+              >
+                <img src={src} alt={`Image ${i + 1}`} draggable={false} />
                 {i === 0 && <span className="image-thumb-badge">Primary</span>}
-                <button type="button" className="image-thumb-remove" onClick={() => removeExistingImage(img.id)}>&times;</button>
+                <button type="button" className="image-thumb-remove" onClick={() => removeImageAt(i)}>&times;</button>
               </div>
-            ))}
-            {previews.map((src, i) => {
-              const overallIndex = existingImages.length + i
-              return (
-                <div
-                  key={`new-${i}`}
-                  className={`image-thumb-item${dragIndex === i ? ' dragging' : ''}${overallIndex === 0 ? ' primary' : ''}`}
-                  draggable
-                  onDragStart={() => handleDragStart(i)}
-                  onDragOver={(e) => handleDragOver(e, i)}
-                  onDragEnd={handleDragEnd}
-                >
-                  <img src={src} alt={`New ${i + 1}`} />
-                  {overallIndex === 0 && <span className="image-thumb-badge">Primary</span>}
-                  <button type="button" className="image-thumb-remove" onClick={() => removeNewImage(i)}>&times;</button>
-                </div>
-              )
-            })}
-          </div>
-        )}
+            )
+          })}
+        </div>
 
         {error && <p className="error-msg">{error}</p>}
 
