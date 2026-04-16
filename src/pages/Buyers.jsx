@@ -32,11 +32,13 @@ export default function Buyers() {
         .eq('status', 'active')
         .lt('expires_at', nowIso)
 
+      // Show active listings that either have no expiration set or expire in the future.
+      // (Rows with null expires_at are legacy listings that predate the expiration feature.)
       const { data, error } = await supabase
         .from('properties')
         .select('*, property_images(*), property_units(*), profiles(first_name, last_name, brokerage_name, license_status, city, state)')
         .eq('status', 'active')
-        .gt('expires_at', nowIso)
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
         .order('created_at', { ascending: false })
 
       if (error) {
