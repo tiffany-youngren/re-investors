@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import NotificationBell from './NotificationBell'
 
 export default function Navbar() {
   const { user, profile, signOut, loading } = useAuth()
@@ -42,6 +43,7 @@ export default function Navbar() {
               {profile?.role === 'admin' && (
                 <Link to="/admin" className={isActive('/admin')} onClick={() => setMenuOpen(false)}>Admin</Link>
               )}
+              <NotificationBell />
               <Link to="/profile" className={`nav-profile-link ${location.pathname === '/profile' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt="" className="nav-avatar" />

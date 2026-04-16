@@ -51,7 +51,7 @@ export default function MemberContact() {
     enabled: !!profileId,
   })
 
-  // Fetch this member's published property listings
+  // Fetch this member's active (currently-listed) property listings
   const { data: properties = [] } = useQuery({
     queryKey: ['member-properties', profileId],
     queryFn: async () => {
@@ -59,7 +59,8 @@ export default function MemberContact() {
         .from('properties')
         .select('id, address, price')
         .eq('profile_id', profileId)
-        .eq('status', 'published')
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
@@ -249,7 +250,7 @@ export default function MemberContact() {
               </select>
               {!hasContactItems && (
                 <p className="field-note" style={{ marginTop: 6 }}>
-                  This member has no published listings or approved buy boxes to inquire about.
+                  This member has no active listings or approved buy boxes to inquire about.
                 </p>
               )}
             </div>

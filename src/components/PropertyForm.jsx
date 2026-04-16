@@ -129,6 +129,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     estimatedArv: editingProperty.estimated_arv ?? '',
     countyRecordsUrl: editingProperty.county_records_url || '',
     virtualTourUrl: editingProperty.virtual_tour_url || '',
+    expiresAt: editingProperty.expires_at ? editingProperty.expires_at.slice(0, 10) : '',
   } : null
   const initial = draft || fromEdit || {}
 
@@ -150,6 +151,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
   const [estimatedArv, setEstimatedArv] = useState(initial?.estimatedArv ?? '')
   const [countyRecordsUrl, setCountyRecordsUrl] = useState(initial?.countyRecordsUrl || '')
   const [virtualTourUrl, setVirtualTourUrl] = useState(initial?.virtualTourUrl || '')
+  const [expiresAt, setExpiresAt] = useState(initial?.expiresAt || '')
   // Unified image list. Each item is either:
   //   { kind: 'existing', id, image_url }
   //   { kind: 'new', file, preview, key }
@@ -193,9 +195,9 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     saveDraftToStorage(draftKey, {
       street, city, addrState, zip, price, sellerType, propertyType,
       numUnits, units, occupancyStatus, condition, financing, description,
-      repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl,
+      repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl, expiresAt,
     })
-  }, [draftKey, street, city, addrState, zip, price, sellerType, propertyType, numUnits, units, occupancyStatus, condition, financing, description, repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl])
+  }, [draftKey, street, city, addrState, zip, price, sellerType, propertyType, numUnits, units, occupancyStatus, condition, financing, description, repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl, expiresAt])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -313,6 +315,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     setEstimatedArv('')
     setCountyRecordsUrl('')
     setVirtualTourUrl('')
+    setExpiresAt('')
     setImageItems([])
     setSubmitting(false)
   }
@@ -329,6 +332,12 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
       return 'Repairs needed is required when condition is fixer.'
     }
     if (imageItems.length < 1) return 'At least 1 image is required.'
+    if (!expiresAt) return 'Expiration date is required when publishing.'
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const exp = new Date(expiresAt)
+    const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + 30); maxDate.setHours(23, 59, 59, 999)
+    if (exp < today) return 'Expiration date cannot be in the past.'
+    if (exp > maxDate) return 'Expiration date cannot be more than 30 days from today.'
     const wordCount = countWords(description)
     if (wordCount > 300) return `Description is ${wordCount} words. Maximum is 300.`
     const violations = checkFHAViolations(description)
@@ -338,7 +347,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
 
   async function handleSave(targetStatus) {
     setError('')
-    if (targetStatus === 'published') {
+    if (targetStatus === 'active') {
       const validationError = validate()
       if (validationError) { setError(validationError); return }
     }
@@ -362,6 +371,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
       estimated_arv: estimatedArv ? parseFloat(estimatedArv) : null,
       county_records_url: countyRecordsUrl.trim() || null,
       virtual_tour_url: virtualTourUrl.trim() || null,
+      expires_at: expiresAt || null,
       status: targetStatus,
     }
 
@@ -477,7 +487,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
     if (onSaved) onSaved()
   }
 
-  const isPublishedEdit = isEditing && editingProperty.status === 'published'
+  const isPublishedEdit = isEditing && editingProperty.status === 'active'
 
   return (
     <div className="form-card">
@@ -713,11 +723,22 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
           })}
         </div>
 
+        <label htmlFor="expiresAt">Expiration Date * (required to publish, max 30 days)</label>
+        <input
+          id="expiresAt"
+          type="date"
+          value={expiresAt}
+          min={new Date().toISOString().slice(0, 10)}
+          max={(() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10) })()}
+          onChange={(e) => setExpiresAt(e.target.value)}
+        />
+        <p className="field-note">Listings automatically expire on this date. You can renew before or after expiration.</p>
+
         {error && <p className="error-msg">{error}</p>}
 
         <div className="form-row" style={{ marginTop: 16, gap: 12 }}>
           {isPublishedEdit ? (
-            <button type="button" className="btn" onClick={() => handleSave('published')} disabled={submitting}>
+            <button type="button" className="btn" onClick={() => handleSave('active')} disabled={submitting}>
               {submitting ? 'Saving...' : 'Save'}
             </button>
           ) : (
@@ -725,7 +746,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
               <button type="button" className="btn btn-secondary" onClick={() => handleSave('draft')} disabled={submitting}>
                 {submitting ? 'Saving...' : 'Save as Draft'}
               </button>
-              <button type="button" className="btn" onClick={() => handleSave('published')} disabled={submitting}>
+              <button type="button" className="btn" onClick={() => handleSave('active')} disabled={submitting}>
                 {submitting ? 'Publishing...' : 'Publish'}
               </button>
             </>

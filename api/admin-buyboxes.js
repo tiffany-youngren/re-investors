@@ -47,12 +47,25 @@ export default async function handler(req, res) {
     const updates = {}
     if (typeof approved === 'boolean') updates.approved = approved
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('buy_boxes')
       .update(updates)
       .eq('id', buyBoxId)
+      .select('id, profile_id, approved')
+      .single()
 
     if (error) return res.status(500).json({ error: error.message })
+
+    // Notify the owner when their buy box is approved
+    if (updated?.profile_id && approved === true) {
+      await supabase.from('notifications').insert({
+        profile_id: updated.profile_id,
+        title: 'Buy box approved',
+        message: 'Your buy box was approved and is now visible to members on the Buy Boxes page.',
+        link: '/buy-boxes',
+      })
+    }
+
     return res.status(200).json({ success: true })
   }
 

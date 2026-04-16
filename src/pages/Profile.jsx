@@ -56,7 +56,7 @@ export default function Profile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('properties')
-        .select('id, address, price, status, property_images(image_url, display_order)')
+        .select('id, address, price, status, expires_at, property_images(image_url, display_order)')
         .eq('profile_id', profile.id)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -117,6 +117,18 @@ export default function Profile() {
     },
   })
 
+  const updatePropertyStatusMutation = useMutation({
+    mutationFn: async ({ id, status, expires_at }) => {
+      const updates = { status }
+      if (expires_at) updates.expires_at = expires_at
+      const { error } = await supabase.from('properties').update(updates).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-properties'] })
+    },
+  })
+
   function handleDeleteProperty(property) {
     if (window.confirm('Are you sure you want to delete this listing?')) {
       deletePropertyMutation.mutate(property)
@@ -127,6 +139,48 @@ export default function Profile() {
     if (window.confirm('Are you sure you want to delete this buy box?')) {
       deleteBuyBoxMutation.mutate(id)
     }
+  }
+
+  function promptNewExpiration(current) {
+    const today = new Date()
+    const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + 30)
+    const defaultVal = maxDate.toISOString().slice(0, 10)
+    const entry = window.prompt(
+      `Enter a new expiration date (YYYY-MM-DD). Max 30 days from today (${defaultVal}).`,
+      defaultVal
+    )
+    if (!entry) return null
+    const d = new Date(entry)
+    if (isNaN(d.getTime())) { alert('Invalid date.'); return null }
+    d.setHours(0, 0, 0, 0)
+    today.setHours(0, 0, 0, 0)
+    if (d < today) { alert('Expiration date cannot be in the past.'); return null }
+    maxDate.setHours(23, 59, 59, 999)
+    if (d > maxDate) { alert('Expiration date cannot be more than 30 days from today.'); return null }
+    return entry
+  }
+
+  function handleDeactivate(id) {
+    if (!window.confirm('Deactivate this listing? It will no longer show on the For Sale page.')) return
+    updatePropertyStatusMutation.mutate({ id, status: 'deactivated' })
+  }
+
+  function handleReactivate(property) {
+    const nowIso = new Date().toISOString()
+    const isExpired = !property.expires_at || property.expires_at < nowIso
+    if (isExpired) {
+      const newDate = promptNewExpiration()
+      if (!newDate) return
+      updatePropertyStatusMutation.mutate({ id: property.id, status: 'active', expires_at: newDate })
+    } else {
+      updatePropertyStatusMutation.mutate({ id: property.id, status: 'active' })
+    }
+  }
+
+  function handleRenew(property) {
+    const newDate = promptNewExpiration()
+    if (!newDate) return
+    updatePropertyStatusMutation.mutate({ id: property.id, status: 'active', expires_at: newDate })
   }
 
   function addInvestmentArea() {
@@ -387,10 +441,45 @@ export default function Profile() {
                   <p className="listing-price">${Number(p.price).toLocaleString()}</p>
                   <p>
                     {p.status === 'draft' && <span className="admin-badge badge-pending">Draft</span>}
-                    {p.status === 'published' && <span className="admin-badge badge-member">Published</span>}
+                    {p.status === 'active' && <span className="admin-badge badge-member">Active</span>}
+                    {p.status === 'expired' && <span className="admin-badge badge-pending">Expired</span>}
+                    {p.status === 'deactivated' && <span className="admin-badge" style={{ background: '#e5e7eb', color: '#4b5563' }}>Deactivated</span>}
+                    {p.status === 'flagged' && <span className="admin-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>Flagged</span>}
+                    {p.expires_at && p.status === 'active' && (
+                      <span className="field-note" style={{ display: 'inline', marginLeft: 8 }}>
+                        Expires {new Date(p.expires_at).toLocaleDateString()}
+                      </span>
+                    )}
                   </p>
                   <div className="listing-actions">
                     <Link to={`/sellers?edit=${p.id}`} className="btn btn-sm btn-secondary">Edit</Link>
+                    {p.status === 'active' && (
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => handleDeactivate(p.id)}
+                        disabled={updatePropertyStatusMutation.isPending}
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                    {p.status === 'deactivated' && (
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => handleReactivate(p)}
+                        disabled={updatePropertyStatusMutation.isPending}
+                      >
+                        Reactivate
+                      </button>
+                    )}
+                    {p.status === 'expired' && (
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => handleRenew(p)}
+                        disabled={updatePropertyStatusMutation.isPending}
+                      >
+                        Renew
+                      </button>
+                    )}
                     <button
                       className="btn btn-sm btn-danger"
                       onClick={() => handleDeleteProperty(p)}

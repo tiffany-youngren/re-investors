@@ -158,7 +158,10 @@ export default function Sellers() {
                 <p>
                   {listing.property_type} &middot; {listing.condition} &middot; {listing.occupancy_status}
                   {listing.status === 'draft' && <span className="admin-badge badge-pending" style={{ marginLeft: 8 }}>Draft</span>}
-                  {listing.status === 'published' && <span className="admin-badge badge-member" style={{ marginLeft: 8 }}>Published</span>}
+                  {listing.status === 'active' && <span className="admin-badge badge-member" style={{ marginLeft: 8 }}>Active</span>}
+                  {listing.status === 'expired' && <span className="admin-badge badge-pending" style={{ marginLeft: 8 }}>Expired</span>}
+                  {listing.status === 'deactivated' && <span className="admin-badge" style={{ marginLeft: 8, background: '#e5e7eb', color: '#4b5563' }}>Deactivated</span>}
+                  {listing.status === 'flagged' && <span className="admin-badge" style={{ marginLeft: 8, background: '#fee2e2', color: '#991b1b' }}>Flagged</span>}
                 </p>
                 <p className="listing-meta">
                   {listing.seller_type} &middot; {listing.financing?.join(', ')}

@@ -21,10 +21,22 @@ export default function Buyers() {
 
   useEffect(() => {
     async function fetchProperties() {
+      const nowIso = new Date().toISOString()
+
+      // First, auto-expire any active listings whose expires_at has passed.
+      // This is a no-op if nothing matches. Ignored if blocked by RLS — the
+      // filter below still hides expired rows from the UI.
+      await supabase
+        .from('properties')
+        .update({ status: 'expired' })
+        .eq('status', 'active')
+        .lt('expires_at', nowIso)
+
       const { data, error } = await supabase
         .from('properties')
         .select('*, property_images(*), property_units(*), profiles(first_name, last_name, brokerage_name, license_status, city, state)')
-        .eq('status', 'published')
+        .eq('status', 'active')
+        .gt('expires_at', nowIso)
         .order('created_at', { ascending: false })
 
       if (error) {

@@ -41,22 +41,46 @@ export default async function handler(req, res) {
 
   // POST — update a property (e.g. approval status)
   if (req.method === 'POST') {
-    const { propertyId, approved } = req.body
+    const { propertyId, approved, flagged } = req.body
     if (!propertyId) return res.status(400).json({ error: 'propertyId required' })
 
     const updates = {}
     if (typeof approved === 'boolean') {
       updates.approved = approved
-      // When approving, also publish so it appears on the For Sale page
-      if (approved === true) updates.status = 'published'
+      // When approving, also activate so it appears on the For Sale page
+      if (approved === true) updates.status = 'active'
     }
+    if (flagged === true) updates.status = 'flagged'
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('properties')
       .update(updates)
       .eq('id', propertyId)
+      .select('id, address, profile_id, status')
+      .single()
 
     if (error) return res.status(500).json({ error: error.message })
+
+    // Create a notification for the owner
+    if (updated?.profile_id) {
+      let title = null, message = null
+      if (updates.status === 'active') {
+        title = 'Listing approved'
+        message = `Your listing at ${updated.address} has been approved and is now live on the For Sale page.`
+      } else if (updates.status === 'flagged') {
+        title = 'Listing flagged'
+        message = `Your listing at ${updated.address} was flagged by admin and is no longer visible. Please contact admin.`
+      }
+      if (title) {
+        await supabase.from('notifications').insert({
+          profile_id: updated.profile_id,
+          title,
+          message,
+          link: '/profile',
+        })
+      }
+    }
+
     return res.status(200).json({ success: true })
   }
 
