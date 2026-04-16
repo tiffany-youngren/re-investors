@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -32,18 +32,40 @@ export default function Login() {
     setError('')
     setSubmitting(true)
 
-    const { error } = await signIn(email, password)
-    if (error) {
-      if (error.message === 'Invalid login credentials') {
+    const { data, error: signInError } = await signIn(email, password)
+    if (signInError) {
+      if (signInError.message === 'Invalid login credentials') {
         setError('Invalid email or password. Please try again.')
-      } else if (error.message === 'Email not confirmed') {
+      } else if (signInError.message === 'Email not confirmed') {
         setError('Your email is not confirmed yet. Please check your inbox or try signing up again.')
       } else {
-        setError(error.message)
+        setError(signInError.message)
       }
+      setSubmitting(false)
+      return
     }
-    // Don't navigate here — the useAuth effect will refresh profile and the
-    // `Navigate` guard above will route to /profile or /buyers based on state.
+
+    // Sign-in succeeded. Fetch the profile directly so we can route correctly
+    // without waiting on the AuthContext refresh cycle.
+    const uid = data?.user?.id
+    if (uid) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, phone, approved')
+        .eq('user_id', uid)
+        .single()
+
+      const needsProfile = !prof?.first_name || !prof?.last_name || !prof?.phone
+      if (needsProfile) {
+        navigate('/profile?welcome=1')
+      } else if (!prof?.approved) {
+        navigate('/pending')
+      } else {
+        navigate('/buyers')
+      }
+    } else {
+      navigate('/buyers')
+    }
 
     setSubmitting(false)
   }
@@ -113,7 +135,6 @@ export default function Login() {
 
   return (
     <div className="auth-page">
-      <Link to="/" className="back-link">&larr; Back to Home</Link>
       <div className="auth-card">
 
         {/* LOGIN */}

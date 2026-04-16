@@ -230,7 +230,7 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
 
 /* Auth page */
 .auth-page {
-  max-width: 400px;
+  max-width: 440px;
   margin: 40px auto;
 }
 .back-link {
@@ -244,6 +244,8 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 32px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .auth-card h1 {
   text-align: center;
@@ -259,10 +261,13 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
   margin-top: 8px;
 }
 .auth-card input {
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 1rem;
+  box-sizing: border-box;
+  font-family: inherit;
 }
 .auth-card button[type="submit"] {
   margin-top: 16px;
