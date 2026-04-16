@@ -215,41 +215,44 @@ export default function MemberContact() {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <label htmlFor="contactRegarding">Regarding *</label>
-            <select
-              id="contactRegarding"
-              value={regarding}
-              onChange={(e) => setRegarding(e.target.value)}
-              required
-            >
-              <option value="">Select a listing or buy box...</option>
-              {properties.length > 0 && (
-                <optgroup label="Property Listings">
-                  {properties.map((p) => (
-                    <option key={p.id} value={`property:${p.id}`}>
-                      {p.address} — ${Number(p.price).toLocaleString()}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {buyBoxes.length > 0 && (
-                <optgroup label="Buy Boxes">
-                  {buyBoxes.map((b) => {
-                    const areas = (b.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ')
-                    return (
-                      <option key={b.id} value={`buy_box:${b.id}`}>
-                        Buy Box: {areas || 'No areas'}
+            <div className="regarding-field">
+              <label htmlFor="contactRegarding" className="regarding-label">Regarding *</label>
+              <select
+                id="contactRegarding"
+                className="regarding-select"
+                value={regarding}
+                onChange={(e) => setRegarding(e.target.value)}
+                required
+              >
+                <option value="">Select a listing or buy box...</option>
+                {properties.length > 0 && (
+                  <optgroup label="Property Listings">
+                    {properties.map((p) => (
+                      <option key={p.id} value={`property:${p.id}`}>
+                        {p.address} — ${Number(p.price).toLocaleString()}
                       </option>
-                    )
-                  })}
-                </optgroup>
+                    ))}
+                  </optgroup>
+                )}
+                {buyBoxes.length > 0 && (
+                  <optgroup label="Buy Boxes">
+                    {buyBoxes.map((b) => {
+                      const areas = (b.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ')
+                      return (
+                        <option key={b.id} value={`buy_box:${b.id}`}>
+                          Buy Box: {areas || 'No areas'}
+                        </option>
+                      )
+                    })}
+                  </optgroup>
+                )}
+              </select>
+              {!hasContactItems && (
+                <p className="field-note" style={{ marginTop: 6 }}>
+                  This member has no published listings or approved buy boxes to inquire about.
+                </p>
               )}
-            </select>
-            {!hasContactItems && (
-              <p className="field-note">
-                This member has no published listings or approved buy boxes to inquire about.
-              </p>
-            )}
+            </div>
 
             <label htmlFor="contactName">Your Name</label>
             <input

@@ -1211,7 +1211,7 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
   margin: 0 0 4px;
   color: var(--text-h);
 }
-.pd-section a {
+.pd-section a:not(.btn):not(.btn-contact) {
   color: var(--accent);
 }
 .pd-units {
@@ -1269,21 +1269,25 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
   font-size: 0.9rem;
   color: var(--text);
 }
+a.btn-contact,
 .btn-contact {
   display: inline-block;
   padding: 12px 24px;
   font-size: 1rem;
   font-weight: 600;
   background: var(--accent);
-  color: #fff;
+  color: #fff !important;
+  text-decoration: none;
+  border: none;
   border-radius: 6px;
   margin-top: 12px;
   box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
   transition: background 0.15s, box-shadow 0.15s;
 }
+a.btn-contact:hover,
 .btn-contact:hover {
   background: var(--accent-hover);
-  color: #fff;
+  color: #fff !important;
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
 }
 .pd-seller-meta {
@@ -1291,6 +1295,40 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
   font-size: 0.9rem;
   color: var(--text);
   text-transform: capitalize;
+}
+
+/* Regarding dropdown on Member Contact form */
+.regarding-field {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+.regarding-label {
+  display: block;
+  font-weight: 700 !important;
+  color: #1e40af !important;
+  font-size: 0.95rem;
+  margin: 0 0 8px !important;
+  letter-spacing: 0.01em;
+}
+.regarding-select {
+  width: 100%;
+  padding: 12px 14px !important;
+  border: 2px solid #93c5fd !important;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--text-h);
+  cursor: pointer;
+}
+.regarding-select:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
 /* Lightbox */
