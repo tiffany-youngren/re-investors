@@ -1079,3 +1079,40 @@ h2 { font-size: 1.4rem; margin: 0 0 12px; }
   gap: 8px;
   margin-top: 8px;
 }
+
+/* Unit copy menu (Multi-Family unit details) */
+.unit-copy-wrapper {
+  position: relative;
+  margin-top: 8px;
+}
+.unit-copy-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 10;
+  min-width: 180px;
+  overflow: hidden;
+}
+.unit-copy-option {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--text-h);
+}
+.unit-copy-option:hover {
+  background: #f3f4f6;
+}
+.unit-copy-cancel {
+  border-top: 1px solid var(--border);
+  color: var(--text);
+}

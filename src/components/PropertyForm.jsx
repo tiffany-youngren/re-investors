@@ -157,6 +157,7 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
   const [fhaWarning, setFhaWarning] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [dragIndex, setDragIndex] = useState(null)
+  const [copyMenuOpen, setCopyMenuOpen] = useState(null)
   const debounceRef = useRef(null)
 
   // Generate previews when images change
@@ -258,6 +259,16 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
 
   function updateUnit(index, field, value) {
     setUnits((prev) => prev.map((u, i) => i === index ? { ...u, [field]: value } : u))
+  }
+
+  function copyUnitTo(sourceIndex, targetIndex) {
+    setUnits((prev) => prev.map((u, i) => i === targetIndex ? { ...prev[sourceIndex] } : u))
+    setCopyMenuOpen(null)
+  }
+
+  function copyUnitToAll(sourceIndex) {
+    setUnits((prev) => prev.map((u, i) => i === sourceIndex ? u : { ...prev[sourceIndex] }))
+    setCopyMenuOpen(null)
   }
 
   function resetForm() {
@@ -547,6 +558,45 @@ export default function PropertyForm({ onSaved, editingProperty, onCancelEdit })
                     </select>
                   </div>
                 </div>
+                {units.length > 1 && (
+                  <div className="unit-copy-wrapper">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => setCopyMenuOpen(copyMenuOpen === i ? null : i)}
+                    >
+                      Copy to other units
+                    </button>
+                    {copyMenuOpen === i && (
+                      <div className="unit-copy-menu">
+                        <button
+                          type="button"
+                          className="unit-copy-option"
+                          onClick={() => copyUnitToAll(i)}
+                        >
+                          Apply to all units
+                        </button>
+                        {units.map((_, j) => j !== i && (
+                          <button
+                            key={j}
+                            type="button"
+                            className="unit-copy-option"
+                            onClick={() => copyUnitTo(i, j)}
+                          >
+                            Apply to unit {j + 1}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="unit-copy-option unit-copy-cancel"
+                          onClick={() => setCopyMenuOpen(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </fieldset>
             ))}
           </>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PropertyForm from '../components/PropertyForm'
@@ -17,6 +17,8 @@ function isProfileComplete(profile) {
 
 export default function Sellers() {
   const { profile } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const editId = searchParams.get('edit')
   const [listings, setListings] = useState([])
   const [loadingListings, setLoadingListings] = useState(true)
   const [editingProperty, setEditingProperty] = useState(null)
@@ -42,6 +44,20 @@ export default function Sellers() {
   useEffect(() => {
     if (profile?.id) fetchListings()
   }, [profile?.id])
+
+  // Auto-open edit mode if ?edit={id} URL param is present
+  useEffect(() => {
+    if (!editId || listings.length === 0) return
+    const target = listings.find((l) => l.id === editId)
+    if (target) {
+      setEditingProperty(target)
+      // Clear the URL param so it doesn't re-trigger
+      setSearchParams({}, { replace: true })
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 50)
+    }
+  }, [editId, listings, setSearchParams])
 
   function handleEdit(listing) {
     setEditingProperty(listing)

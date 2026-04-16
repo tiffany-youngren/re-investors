@@ -62,7 +62,7 @@ export default function BuyBoxes() {
                 </span>
               )}
               <span className="buybox-buyer-name">{box.profiles?.first_name || 'Member'}</span>
-              {box.user_id === user?.id && (
+              {box.profile_id === profile?.id && (
                 <Link
                   to={`/buy-box/${box.id}/edit`}
                   className="buybox-edit-link"

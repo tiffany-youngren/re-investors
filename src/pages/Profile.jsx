@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { US_STATES, formatPhone, stripPhone } from '../lib/utils'
@@ -66,18 +66,67 @@ export default function Profile() {
 
   // Fetch user's buy boxes
   const { data: buyBoxes = [] } = useQuery({
-    queryKey: ['my-buy-boxes', user?.id],
+    queryKey: ['my-buy-boxes', profile?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('buy_boxes')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('profile_id', profile.id)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
     },
-    enabled: !!user?.id,
+    enabled: !!profile?.id,
   })
+
+  const deletePropertyMutation = useMutation({
+    mutationFn: async (property) => {
+      // Delete images from storage
+      if (property.property_images?.length > 0) {
+        const paths = property.property_images.map((img) => {
+          try {
+            const url = new URL(img.image_url)
+            const parts = url.pathname.split('/property-images/')
+            return parts[1] || ''
+          } catch { return '' }
+        }).filter(Boolean)
+        if (paths.length > 0) {
+          await supabase.storage.from('property-images').remove(paths)
+        }
+      }
+      await supabase.from('property_images').delete().eq('property_id', property.id)
+      await supabase.from('property_units').delete().eq('property_id', property.id)
+      const { error } = await supabase.from('properties').delete().eq('id', property.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-properties'] })
+    },
+  })
+
+  const deleteBuyBoxMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('buy_boxes').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-buy-boxes'] })
+      queryClient.invalidateQueries({ queryKey: ['buyBoxes'] })
+      queryClient.invalidateQueries({ queryKey: ['buyBoxCount'] })
+    },
+  })
+
+  function handleDeleteProperty(property) {
+    if (window.confirm('Are you sure you want to delete this listing?')) {
+      deletePropertyMutation.mutate(property)
+    }
+  }
+
+  function handleDeleteBuyBox(id) {
+    if (window.confirm('Are you sure you want to delete this buy box?')) {
+      deleteBuyBoxMutation.mutate(id)
+    }
+  }
 
   function addInvestmentArea() {
     if (!newAreaCity.trim() || !newAreaState.trim()) return
@@ -295,6 +344,7 @@ export default function Profile() {
             const sortedImages = [...(p.property_images || [])].sort(
               (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
             )
+            const isDeleting = deletePropertyMutation.isPending && deletePropertyMutation.variables?.id === p.id
             return (
               <div key={p.id} className="listing-card">
                 {sortedImages.length > 0 && (
@@ -308,7 +358,14 @@ export default function Profile() {
                     {p.status === 'published' && <span className="admin-badge badge-member">Published</span>}
                   </p>
                   <div className="listing-actions">
-                    <Link to="/sellers" className="btn btn-sm btn-secondary">Edit on Sellers Page</Link>
+                    <Link to={`/sellers?edit=${p.id}`} className="btn btn-sm btn-secondary">Edit</Link>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => handleDeleteProperty(p)}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -321,15 +378,34 @@ export default function Profile() {
       {isMember && buyBoxes.length > 0 && (
         <div className="profile-section">
           <h2>Your Buy Boxes</h2>
-          {buyBoxes.map((bb) => (
-            <div key={bb.id} className="listing-card">
-              <div className="listing-info">
-                <h3>{bb.title || 'Buy Box'}</h3>
-                <p>{bb.property_types?.join(', ')}</p>
-                {bb.max_price && <p className="listing-price">Up to ${Number(bb.max_price).toLocaleString()}</p>}
+          {buyBoxes.map((bb) => {
+            const isDeleting = deleteBuyBoxMutation.isPending && deleteBuyBoxMutation.variables === bb.id
+            const areasText = (bb.areas_looking || []).map((a) => `${a.city}, ${a.state}`).join(' · ')
+            return (
+              <div key={bb.id} className="listing-card">
+                <div className="listing-info">
+                  <h3>{areasText || 'Buy Box'}</h3>
+                  <p>{bb.property_types?.join(', ')}</p>
+                  {bb.price_max && (
+                    <p className="listing-price">
+                      {bb.price_min ? `$${Number(bb.price_min).toLocaleString()} – ` : 'Up to '}
+                      ${Number(bb.price_max).toLocaleString()}
+                    </p>
+                  )}
+                  <div className="listing-actions">
+                    <Link to={`/buy-box/${bb.id}/edit`} className="btn btn-sm btn-secondary">Edit</Link>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => handleDeleteBuyBox(bb.id)}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

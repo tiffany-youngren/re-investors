@@ -31,7 +31,7 @@ function clearDraft(key) {
 }
 
 export default function BuyBoxForm() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -77,16 +77,16 @@ export default function BuyBoxForm() {
 
   // Fetch existing buy box count
   const { data: buyBoxCount = 0 } = useQuery({
-    queryKey: ['buyBoxCount', user?.id],
+    queryKey: ['buyBoxCount', profile?.id],
     queryFn: async () => {
       const { count, error } = await supabase
         .from('buy_boxes')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('profile_id', profile.id)
       if (error) throw error
       return count
     },
-    enabled: !!user,
+    enabled: !!profile?.id,
   })
 
   // Fetch existing buy box when editing
@@ -122,7 +122,7 @@ export default function BuyBoxForm() {
   }, [existingBox, prefilled, draft])
 
   // Check ownership when editing
-  if (isEditing && existingBox && existingBox.user_id !== user?.id) {
+  if (isEditing && existingBox && existingBox.profile_id !== profile?.id) {
     return (
       <div className="buybox-form-page">
         <h1>Not Authorized</h1>
@@ -142,7 +142,7 @@ export default function BuyBoxForm() {
       } else {
         const { error } = await supabase
           .from('buy_boxes')
-          .insert({ ...buyBoxData, user_id: user.id })
+          .insert({ ...buyBoxData, profile_id: profile.id })
         if (error) throw error
       }
     },
