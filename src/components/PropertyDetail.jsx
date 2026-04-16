@@ -168,11 +168,20 @@ export default function PropertyDetail({ property, onClose }) {
         {seller && property.profile_id && (
           <div className="pd-section pd-seller">
             <h3>Listed By</h3>
-            {seller.brokerage_name && <p className="pc-brokerage">{seller.brokerage_name}</p>}
+            <p className="pd-seller-name">
+              {[seller.first_name, seller.last_name].filter(Boolean).join(' ') || 'Member'}
+            </p>
+            {seller.license_status === 'licensed' && seller.brokerage_name && (
+              <p className="pd-seller-brokerage">{seller.brokerage_name}</p>
+            )}
+            {(seller.city || seller.state) && (
+              <p className="pd-seller-location">
+                {[seller.city, seller.state].filter(Boolean).join(', ')}
+              </p>
+            )}
             <Link
               to={`/member/${property.profile_id}?source=property&id=${property.id}`}
-              className="btn"
-              style={{ marginTop: 8 }}
+              className="btn btn-contact"
             >
               Contact {seller.first_name || 'Member'}
             </Link>

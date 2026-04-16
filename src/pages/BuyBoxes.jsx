@@ -9,7 +9,7 @@ export default function BuyBoxes() {
   const isMemberOrAdmin = profile?.role === 'member' || profile?.role === 'admin'
   const [selectedBox, setSelectedBox] = useState(null)
 
-  const { data: buyBoxes = [], isLoading } = useQuery({
+  const { data: buyBoxes = [], isLoading, error: queryError } = useQuery({
     queryKey: ['buyBoxes'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -20,6 +20,9 @@ export default function BuyBoxes() {
       if (error) throw error
       return data
     },
+    // Always refetch on mount so admin approvals show up immediately
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   function formatPrice(num) {
@@ -41,9 +44,15 @@ export default function BuyBoxes() {
 
       {isLoading && <p className="loading">Loading buy boxes...</p>}
 
-      {!isLoading && buyBoxes.length === 0 && (
+      {queryError && (
+        <div className="error-msg" style={{ padding: 16 }}>
+          Error loading buy boxes: {queryError.message}
+        </div>
+      )}
+
+      {!isLoading && !queryError && buyBoxes.length === 0 && (
         <div className="no-results">
-          No buy boxes posted yet. Be the first to share what you're looking for!
+          No approved buy boxes yet. New buy boxes require admin approval before showing here.
         </div>
       )}
 

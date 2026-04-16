@@ -59,8 +59,6 @@ export default function MemberContact() {
   if (isLoading) return <div className="loading">Loading...</div>
   if (!member) return <div className="loading">Member not found.</div>
 
-  const isSelf = member.id === myProfile?.id
-
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -150,58 +148,52 @@ export default function MemberContact() {
           </div>
         )}
 
-        {isSelf ? (
-          <p className="field-note">This is your own profile. You cannot contact yourself.</p>
-        ) : (
+        <h2 style={{ fontSize: '1.1rem', marginTop: 24 }}>Send a Message</h2>
+        <form onSubmit={handleSubmit}>
+          <label htmlFor="contactName">Your Name</label>
+          <input
+            id="contactName"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+
+          <label htmlFor="contactEmail">Your Email</label>
+          <input
+            id="contactEmail"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
+          <label htmlFor="contactMessage">Message</label>
+          <textarea
+            id="contactMessage"
+            rows={6}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={`Hi ${member.first_name || ''}, ...`}
+            required
+          />
+
+          {error && <p className="error-msg">{error}</p>}
+          {success && <p className="success-msg">{success}</p>}
+
+          <button type="submit" className="btn" disabled={submitting}>
+            {submitting ? 'Sending...' : 'Send Message'}
+          </button>
+        </form>
+
+        {member.phone && (
           <>
-            <h2 style={{ fontSize: '1.1rem', marginTop: 24 }}>Send a Message</h2>
-            <form onSubmit={handleSubmit}>
-              <label htmlFor="contactName">Your Name</label>
-              <input
-                id="contactName"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-
-              <label htmlFor="contactEmail">Your Email</label>
-              <input
-                id="contactEmail"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-
-              <label htmlFor="contactMessage">Message</label>
-              <textarea
-                id="contactMessage"
-                rows={6}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={`Hi ${member.first_name || ''}, ...`}
-                required
-              />
-
-              {error && <p className="error-msg">{error}</p>}
-              {success && <p className="success-msg">{success}</p>}
-
-              <button type="submit" className="btn" disabled={submitting}>
-                {submitting ? 'Sending...' : 'Send Message'}
-              </button>
-            </form>
-
-            {member.phone && (
-              <>
-                <p className="field-note" style={{ marginTop: 16, marginBottom: 4 }}>
-                  Prefer to text instead?
-                </p>
-                <button type="button" className="btn btn-secondary" onClick={handleTextClick}>
-                  Text Me
-                </button>
-              </>
-            )}
+            <p className="field-note" style={{ marginTop: 16, marginBottom: 4 }}>
+              Prefer to text instead?
+            </p>
+            <button type="button" className="btn btn-secondary" onClick={handleTextClick}>
+              Text Me
+            </button>
           </>
         )}
       </div>
