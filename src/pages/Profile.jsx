@@ -55,7 +55,7 @@ export default function Profile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('properties')
-        .select('id, address, price, property_images(image_url)')
+        .select('id, address, price, status, property_images(image_url, display_order)')
         .eq('profile_id', profile.id)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -291,17 +291,29 @@ export default function Profile() {
       {isMember && properties.length > 0 && (
         <div className="profile-section">
           <h2>Your Property Listings</h2>
-          {properties.map((p) => (
-            <div key={p.id} className="listing-card">
-              {p.property_images?.length > 0 && (
-                <img src={p.property_images[0].image_url} alt={p.address} className="listing-thumb" />
-              )}
-              <div className="listing-info">
-                <h3>{p.address}</h3>
-                <p className="listing-price">${Number(p.price).toLocaleString()}</p>
+          {properties.map((p) => {
+            const sortedImages = [...(p.property_images || [])].sort(
+              (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+            )
+            return (
+              <div key={p.id} className="listing-card">
+                {sortedImages.length > 0 && (
+                  <img src={sortedImages[0].image_url} alt={p.address} className="listing-thumb" />
+                )}
+                <div className="listing-info">
+                  <h3>{p.address}</h3>
+                  <p className="listing-price">${Number(p.price).toLocaleString()}</p>
+                  <p>
+                    {p.status === 'draft' && <span className="admin-badge badge-pending">Draft</span>}
+                    {p.status === 'published' && <span className="admin-badge badge-member">Published</span>}
+                  </p>
+                  <div className="listing-actions">
+                    <Link to="/sellers" className="btn btn-sm btn-secondary">Edit on Sellers Page</Link>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

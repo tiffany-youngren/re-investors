@@ -113,9 +113,9 @@ export default function BuyBoxForm() {
       setYearBuiltMax(existingBox.year_built_max ?? '')
       setPriceMin(existingBox.price_min ?? '')
       setPriceMax(existingBox.price_max ?? '')
-      setCapRate(existingBox.cap_rate ?? '')
-      setCocReturn(existingBox.coc_return ?? '')
-      setNoi(existingBox.noi ?? '')
+      setCapRate(existingBox.expected_cap_rate ?? '')
+      setCocReturn(existingBox.expected_coc_return ?? '')
+      setNoi(existingBox.expected_noi ?? '')
       setDescription(existingBox.description ?? '')
       setPrefilled(true)
     }
@@ -204,9 +204,9 @@ export default function BuyBoxForm() {
       year_built_max: yearBuiltMax ? Number(yearBuiltMax) : null,
       price_min: priceMin ? Number(priceMin) : null,
       price_max: Number(priceMax),
-      cap_rate: capRate ? Number(capRate) : null,
-      coc_return: cocReturn ? Number(cocReturn) : null,
-      noi: noi ? Number(noi) : null,
+      expected_cap_rate: capRate ? Number(capRate) : null,
+      expected_coc_return: cocReturn ? Number(cocReturn) : null,
+      expected_noi: noi ? Number(noi) : null,
       description: description.trim() || null,
     })
   }

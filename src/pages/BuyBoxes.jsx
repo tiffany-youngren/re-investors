@@ -151,13 +151,13 @@ export default function BuyBoxes() {
               <p>{selectedBox.price_min ? formatPrice(selectedBox.price_min) + ' – ' : 'Up to '}{formatPrice(selectedBox.price_max)}</p>
             </div>
 
-            {(selectedBox.cap_rate || selectedBox.coc_return || selectedBox.noi) && (
+            {(selectedBox.expected_cap_rate || selectedBox.expected_coc_return || selectedBox.expected_noi) && (
               <div className="buybox-modal-section">
                 <h3>Expected Returns</h3>
                 <div className="buybox-returns">
-                  {selectedBox.cap_rate && <span>Cap Rate: {selectedBox.cap_rate}%</span>}
-                  {selectedBox.coc_return && <span>CoC Return: {selectedBox.coc_return}%</span>}
-                  {selectedBox.noi && <span>NOI: ${Number(selectedBox.noi).toLocaleString()}</span>}
+                  {selectedBox.expected_cap_rate && <span>Cap Rate: {selectedBox.expected_cap_rate}%</span>}
+                  {selectedBox.expected_coc_return && <span>CoC Return: {selectedBox.expected_coc_return}%</span>}
+                  {selectedBox.expected_noi && <span>NOI: ${Number(selectedBox.expected_noi).toLocaleString()}</span>}
                 </div>
               </div>
             )}

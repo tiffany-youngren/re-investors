@@ -45,7 +45,11 @@ export default async function handler(req, res) {
     if (!propertyId) return res.status(400).json({ error: 'propertyId required' })
 
     const updates = {}
-    if (typeof approved === 'boolean') updates.approved = approved
+    if (typeof approved === 'boolean') {
+      updates.approved = approved
+      // When approving, also publish so it appears on the For Sale page
+      if (approved === true) updates.status = 'published'
+    }
 
     const { error } = await supabase
       .from('properties')

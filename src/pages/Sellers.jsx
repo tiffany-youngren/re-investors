@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -16,9 +16,12 @@ function isProfileComplete(profile) {
 }
 
 export default function Sellers() {
-  const { user, profile } = useAuth()
+  const { profile } = useAuth()
   const [listings, setListings] = useState([])
   const [loadingListings, setLoadingListings] = useState(true)
+  const [editingProperty, setEditingProperty] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+  const formRef = useRef(null)
 
   async function fetchListings() {
     setLoadingListings(true)
@@ -40,6 +43,54 @@ export default function Sellers() {
     if (profile?.id) fetchListings()
   }, [profile?.id])
 
+  function handleEdit(listing) {
+    setEditingProperty(listing)
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }
+
+  function handleSaved() {
+    setEditingProperty(null)
+    fetchListings()
+  }
+
+  function handleCancelEdit() {
+    setEditingProperty(null)
+  }
+
+  async function handleDelete(listing) {
+    if (!window.confirm(`Delete the listing at ${listing.address}? This cannot be undone.`)) return
+    setDeletingId(listing.id)
+
+    // Delete images from storage
+    if (listing.property_images?.length > 0) {
+      const paths = listing.property_images.map((img) => {
+        try {
+          const url = new URL(img.image_url)
+          const parts = url.pathname.split('/property-images/')
+          return parts[1] || ''
+        } catch { return '' }
+      }).filter(Boolean)
+      if (paths.length > 0) {
+        await supabase.storage.from('property-images').remove(paths)
+      }
+    }
+
+    // Delete child rows then property
+    await supabase.from('property_images').delete().eq('property_id', listing.id)
+    await supabase.from('property_units').delete().eq('property_id', listing.id)
+    const { error } = await supabase.from('properties').delete().eq('id', listing.id)
+
+    if (error) {
+      alert(`Failed to delete: ${error.message}`)
+    } else {
+      if (editingProperty?.id === listing.id) setEditingProperty(null)
+      await fetchListings()
+    }
+    setDeletingId(null)
+  }
+
   if (!isProfileComplete(profile)) {
     return (
       <div className="sellers-page">
@@ -57,7 +108,14 @@ export default function Sellers() {
     <div className="sellers-page">
       <h1>Sellers</h1>
 
-      <PropertyForm onSaved={fetchListings} />
+      <div ref={formRef}>
+        <PropertyForm
+          key={editingProperty?.id || 'new'}
+          editingProperty={editingProperty}
+          onSaved={handleSaved}
+          onCancelEdit={handleCancelEdit}
+        />
+      </div>
 
       <div className="my-listings">
         <h2>Your Listings</h2>
@@ -65,28 +123,44 @@ export default function Sellers() {
         {!loadingListings && listings.length === 0 && (
           <p>You have no listings yet. Use the form above to add one.</p>
         )}
-        {listings.map((listing) => (
-          <div key={listing.id} className="listing-card">
-            {listing.property_images?.length > 0 && (
-              <img
-                src={listing.property_images[0].image_url}
-                alt={listing.address}
-                className="listing-thumb"
-              />
-            )}
-            <div className="listing-info">
-              <h3>{listing.address}</h3>
-              <p className="listing-price">${Number(listing.price).toLocaleString()}</p>
-              <p>
-                {listing.property_type} &middot; {listing.condition} &middot; {listing.occupancy_status}
-                {listing.status === 'draft' && <span className="admin-badge badge-pending" style={{ marginLeft: 8 }}>Draft</span>}
-              </p>
-              <p className="listing-meta">
-                {listing.seller_type} &middot; {listing.financing?.join(', ')}
-              </p>
+        {listings.map((listing) => {
+          const sortedImages = [...(listing.property_images || [])].sort(
+            (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+          )
+          return (
+            <div key={listing.id} className="listing-card">
+              {sortedImages.length > 0 && (
+                <img
+                  src={sortedImages[0].image_url}
+                  alt={listing.address}
+                  className="listing-thumb"
+                />
+              )}
+              <div className="listing-info">
+                <h3>{listing.address}</h3>
+                <p className="listing-price">${Number(listing.price).toLocaleString()}</p>
+                <p>
+                  {listing.property_type} &middot; {listing.condition} &middot; {listing.occupancy_status}
+                  {listing.status === 'draft' && <span className="admin-badge badge-pending" style={{ marginLeft: 8 }}>Draft</span>}
+                  {listing.status === 'published' && <span className="admin-badge badge-member" style={{ marginLeft: 8 }}>Published</span>}
+                </p>
+                <p className="listing-meta">
+                  {listing.seller_type} &middot; {listing.financing?.join(', ')}
+                </p>
+                <div className="listing-actions">
+                  <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(listing)}>Edit</button>
+                  <button
+                    className="btn btn-sm btn-danger"
+                    onClick={() => handleDelete(listing)}
+                    disabled={deletingId === listing.id}
+                  >
+                    {deletingId === listing.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

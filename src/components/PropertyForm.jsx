@@ -88,29 +88,69 @@ function emptyUnit() {
   return { bedrooms: '', bathrooms: '', sqft: '', rent: '', occupancy: 'vacant' }
 }
 
-export default function PropertyForm({ onSaved }) {
-  const { user, profile } = useAuth()
-  const isLicensed = profile?.license_status === 'licensed'
-  const draft = loadDraft()
+// Parse "{street}, {city}, {ST} {zip}" back into parts
+function parseAddress(full) {
+  if (!full) return { street: '', city: '', state: '', zip: '' }
+  const parts = full.split(',').map((p) => p.trim())
+  if (parts.length < 3) return { street: full, city: '', state: '', zip: '' }
+  const street = parts[0]
+  const city = parts[1]
+  const stateZip = parts.slice(2).join(', ').trim()
+  const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(.+)$/)
+  if (stateZipMatch) {
+    return { street, city, state: stateZipMatch[1], zip: stateZipMatch[2] }
+  }
+  return { street, city, state: '', zip: stateZip }
+}
 
-  const [street, setStreet] = useState(draft?.street || '')
-  const [city, setCity] = useState(draft?.city || '')
-  const [addrState, setAddrState] = useState(draft?.addrState || '')
-  const [zip, setZip] = useState(draft?.zip || '')
-  const [price, setPrice] = useState(draft?.price || '')
-  const [sellerType, setSellerType] = useState(draft?.sellerType || (isLicensed ? '' : ''))
-  const [propertyType, setPropertyType] = useState(draft?.propertyType || '')
-  const [numUnits, setNumUnits] = useState(draft?.numUnits || '')
-  const [units, setUnits] = useState(draft?.units || [])
-  const [occupancyStatus, setOccupancyStatus] = useState(draft?.occupancyStatus || '')
-  const [condition, setCondition] = useState(draft?.condition || '')
-  const [financing, setFinancing] = useState(draft?.financing || [])
-  const [description, setDescription] = useState(draft?.description || '')
-  const [repairsNeeded, setRepairsNeeded] = useState(draft?.repairsNeeded || '')
-  const [rehabCostEstimate, setRehabCostEstimate] = useState(draft?.rehabCostEstimate || '')
-  const [estimatedArv, setEstimatedArv] = useState(draft?.estimatedArv || '')
-  const [countyRecordsUrl, setCountyRecordsUrl] = useState(draft?.countyRecordsUrl || '')
-  const [virtualTourUrl, setVirtualTourUrl] = useState(draft?.virtualTourUrl || '')
+export default function PropertyForm({ onSaved, editingProperty, onCancelEdit }) {
+  const { profile } = useAuth()
+  const isLicensed = profile?.license_status === 'licensed'
+  const isEditing = Boolean(editingProperty)
+  // Only use sessionStorage draft for new listings (not edits)
+  const draft = isEditing ? null : loadDraft()
+  const initial = editingProperty ? {
+    ...parseAddress(editingProperty.address),
+    addrState: parseAddress(editingProperty.address).state,
+    price: editingProperty.price ?? '',
+    sellerType: editingProperty.seller_type || '',
+    propertyType: editingProperty.property_type || '',
+    numUnits: editingProperty.num_units ?? '',
+    occupancyStatus: editingProperty.occupancy_status || '',
+    condition: editingProperty.condition || '',
+    financing: editingProperty.financing || [],
+    description: editingProperty.description || '',
+    repairsNeeded: editingProperty.repairs_needed || '',
+    rehabCostEstimate: editingProperty.rehab_cost_estimate ?? '',
+    estimatedArv: editingProperty.estimated_arv ?? '',
+    countyRecordsUrl: editingProperty.county_records_url || '',
+    virtualTourUrl: editingProperty.virtual_tour_url || '',
+  } : (draft || {})
+
+  const [street, setStreet] = useState(initial?.street || '')
+  const [city, setCity] = useState(initial?.city || '')
+  const [addrState, setAddrState] = useState(initial?.addrState || initial?.state || '')
+  const [zip, setZip] = useState(initial?.zip || '')
+  const [price, setPrice] = useState(initial?.price ?? '')
+  const [sellerType, setSellerType] = useState(initial?.sellerType || '')
+  const [propertyType, setPropertyType] = useState(initial?.propertyType || '')
+  const [numUnits, setNumUnits] = useState(initial?.numUnits ?? '')
+  const [units, setUnits] = useState(initial?.units || [])
+  const [occupancyStatus, setOccupancyStatus] = useState(initial?.occupancyStatus || '')
+  const [condition, setCondition] = useState(initial?.condition || '')
+  const [financing, setFinancing] = useState(initial?.financing || [])
+  const [description, setDescription] = useState(initial?.description || '')
+  const [repairsNeeded, setRepairsNeeded] = useState(initial?.repairsNeeded || '')
+  const [rehabCostEstimate, setRehabCostEstimate] = useState(initial?.rehabCostEstimate ?? '')
+  const [estimatedArv, setEstimatedArv] = useState(initial?.estimatedArv ?? '')
+  const [countyRecordsUrl, setCountyRecordsUrl] = useState(initial?.countyRecordsUrl || '')
+  const [virtualTourUrl, setVirtualTourUrl] = useState(initial?.virtualTourUrl || '')
+  // Existing images from DB (only when editing)
+  const [existingImages, setExistingImages] = useState(
+    isEditing
+      ? [...(editingProperty.property_images || [])].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+      : []
+  )
   const [images, setImages] = useState([])
   const [previews, setPreviews] = useState([])
   const [error, setError] = useState('')
@@ -143,14 +183,15 @@ export default function PropertyForm({ onSaved }) {
     }
   }, [numUnits, propertyType])
 
-  // Debounced draft save
+  // Debounced draft save (only for new listings, not edits)
   const flushDraft = useCallback(() => {
+    if (isEditing) return
     saveDraftToStorage({
       street, city, addrState, zip, price, sellerType, propertyType,
       numUnits, units, occupancyStatus, condition, financing, description,
       repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl,
     })
-  }, [street, city, addrState, zip, price, sellerType, propertyType, numUnits, units, occupancyStatus, condition, financing, description, repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl])
+  }, [isEditing, street, city, addrState, zip, price, sellerType, propertyType, numUnits, units, occupancyStatus, condition, financing, description, repairsNeeded, rehabCostEstimate, estimatedArv, countyRecordsUrl, virtualTourUrl])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -178,16 +219,20 @@ export default function PropertyForm({ onSaved }) {
 
   function handleImageSelect(e) {
     const files = Array.from(e.target.files)
-    const total = images.length + files.length
+    const total = existingImages.length + images.length + files.length
     if (total > 10) {
-      setError(`Maximum 10 images. You selected ${files.length} but already have ${images.length}.`)
+      setError(`Maximum 10 images. You have ${existingImages.length + images.length} and tried to add ${files.length}.`)
       return
     }
     setImages((prev) => [...prev, ...files])
     setError('')
   }
 
-  function removeImage(index) {
+  function removeExistingImage(id) {
+    setExistingImages((prev) => prev.filter((img) => img.id !== id))
+  }
+
+  function removeNewImage(index) {
     setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
@@ -222,7 +267,7 @@ export default function PropertyForm({ onSaved }) {
     setAddrState('')
     setZip('')
     setPrice('')
-    setSellerType(isLicensed ? '' : '')
+    setSellerType('')
     setPropertyType('')
     setNumUnits('')
     setUnits([])
@@ -235,6 +280,7 @@ export default function PropertyForm({ onSaved }) {
     setEstimatedArv('')
     setCountyRecordsUrl('')
     setVirtualTourUrl('')
+    setExistingImages([])
     setImages([])
     setSubmitting(false)
   }
@@ -250,7 +296,7 @@ export default function PropertyForm({ onSaved }) {
     if (condition === 'fixer' && !repairsNeeded.trim()) {
       return 'Repairs needed is required when condition is fixer.'
     }
-    if (images.length < 1) return 'At least 1 image is required.'
+    if (existingImages.length + images.length < 1) return 'At least 1 image is required.'
     const wordCount = countWords(description)
     if (wordCount > 300) return `Description is ${wordCount} words. Maximum is 300.`
     const violations = checkFHAViolations(description)
@@ -258,9 +304,9 @@ export default function PropertyForm({ onSaved }) {
     return null
   }
 
-  async function handleSave(status) {
+  async function handleSave(targetStatus) {
     setError('')
-    if (status === 'published') {
+    if (targetStatus === 'published') {
       const validationError = validate()
       if (validationError) { setError(validationError); return }
     }
@@ -270,7 +316,6 @@ export default function PropertyForm({ onSaved }) {
     const fullAddress = `${street.trim()}, ${city.trim()}, ${addrState} ${zip.trim()}`
 
     const propertyData = {
-      profile_id: profile.id,
       address: fullAddress,
       price: price ? parseFloat(price) : null,
       seller_type: sellerType || null,
@@ -285,25 +330,42 @@ export default function PropertyForm({ onSaved }) {
       estimated_arv: estimatedArv ? parseFloat(estimatedArv) : null,
       county_records_url: countyRecordsUrl.trim() || null,
       virtual_tour_url: virtualTourUrl.trim() || null,
-      status,
+      status: targetStatus,
     }
 
-    const { data: property, error: insertError } = await supabase
-      .from('properties')
-      .insert(propertyData)
-      .select()
-      .single()
-
-    if (insertError) {
-      setError(insertError.message)
-      setSubmitting(false)
-      return
+    let propertyId
+    if (isEditing) {
+      const { error: updateError } = await supabase
+        .from('properties')
+        .update(propertyData)
+        .eq('id', editingProperty.id)
+      if (updateError) {
+        setError(updateError.message)
+        setSubmitting(false)
+        return
+      }
+      propertyId = editingProperty.id
+    } else {
+      const { data: property, error: insertError } = await supabase
+        .from('properties')
+        .insert({ ...propertyData, profile_id: profile.id })
+        .select()
+        .single()
+      if (insertError) {
+        setError(insertError.message)
+        setSubmitting(false)
+        return
+      }
+      propertyId = property.id
     }
 
-    // Save unit details for multi-family
+    // Save unit details for multi-family (replace all when editing)
     if (propertyType === 'multi-family' && units.length > 0) {
+      if (isEditing) {
+        await supabase.from('property_units').delete().eq('property_id', propertyId)
+      }
       const unitRows = units.map((u, i) => ({
-        property_id: property.id,
+        property_id: propertyId,
         unit_number: i + 1,
         bedrooms: u.bedrooms ? parseInt(u.bedrooms, 10) : null,
         bathrooms: u.bathrooms ? parseFloat(u.bathrooms) : null,
@@ -314,11 +376,47 @@ export default function PropertyForm({ onSaved }) {
       await supabase.from('property_units').insert(unitRows)
     }
 
-    // Upload images in display order
+    // Handle removed existing images (when editing)
+    if (isEditing) {
+      const originalImageIds = (editingProperty.property_images || []).map((img) => img.id)
+      const keptIds = existingImages.map((img) => img.id)
+      const removedIds = originalImageIds.filter((id) => !keptIds.includes(id))
+      if (removedIds.length > 0) {
+        // Get URLs to delete from storage
+        const { data: toDelete } = await supabase
+          .from('property_images')
+          .select('image_url')
+          .in('id', removedIds)
+        if (toDelete && toDelete.length > 0) {
+          const paths = toDelete.map((img) => {
+            try {
+              const url = new URL(img.image_url)
+              const parts = url.pathname.split('/property-images/')
+              return parts[1] || ''
+            } catch { return '' }
+          }).filter(Boolean)
+          if (paths.length > 0) {
+            await supabase.storage.from('property-images').remove(paths)
+          }
+        }
+        await supabase.from('property_images').delete().in('id', removedIds)
+      }
+
+      // Update display_order on existing kept images
+      for (let i = 0; i < existingImages.length; i++) {
+        await supabase
+          .from('property_images')
+          .update({ display_order: i })
+          .eq('id', existingImages[i].id)
+      }
+    }
+
+    // Upload new images, continuing display_order after existing
+    const startIndex = existingImages.length
     for (let i = 0; i < images.length; i++) {
       const file = images[i]
       const resized = await resizeImage(file)
-      const fileName = `${property.id}/${Date.now()}-${i}.jpg`
+      const fileName = `${propertyId}/${Date.now()}-${i}.jpg`
 
       const { error: uploadError } = await supabase.storage
         .from('property-images')
@@ -335,19 +433,27 @@ export default function PropertyForm({ onSaved }) {
         .getPublicUrl(fileName)
 
       await supabase.from('property_images').insert({
-        property_id: property.id,
+        property_id: propertyId,
         image_url: publicUrl,
-        display_order: i,
+        display_order: startIndex + i,
       })
     }
 
-    resetForm()
+    if (!isEditing) resetForm()
+    setSubmitting(false)
     if (onSaved) onSaved()
   }
 
+  const isPublishedEdit = isEditing && editingProperty.status === 'published'
+
   return (
     <div className="form-card">
-      <h2>Add a Property Listing</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <h2>{isEditing ? 'Edit Property Listing' : 'Add a Property Listing'}</h2>
+        {isEditing && (
+          <button type="button" className="btn btn-sm btn-secondary" onClick={onCancelEdit}>Cancel</button>
+        )}
+      </div>
       <p className="field-note" style={{ marginBottom: 16 }}>
         Property listings can only be posted by members of the Based in Billings Meetup Group, unless expressly approved by the Admin.
       </p>
@@ -503,36 +609,54 @@ export default function PropertyForm({ onSaved }) {
 
         <label>Property Images (1-10) *</label>
         <input type="file" accept="image/*" multiple onChange={handleImageSelect} />
-        <p className="field-note">First image is the primary photo. Drag to reorder.</p>
+        <p className="field-note">First image is the primary photo. Drag new images to reorder.</p>
 
-        {previews.length > 0 && (
+        {(existingImages.length > 0 || previews.length > 0) && (
           <div className="image-thumb-grid">
-            {previews.map((src, i) => (
-              <div
-                key={i}
-                className={`image-thumb-item${dragIndex === i ? ' dragging' : ''}${i === 0 ? ' primary' : ''}`}
-                draggable
-                onDragStart={() => handleDragStart(i)}
-                onDragOver={(e) => handleDragOver(e, i)}
-                onDragEnd={handleDragEnd}
-              >
-                <img src={src} alt={`Preview ${i + 1}`} />
+            {existingImages.map((img, i) => (
+              <div key={`existing-${img.id}`} className={`image-thumb-item${i === 0 ? ' primary' : ''}`}>
+                <img src={img.image_url} alt={`Existing ${i + 1}`} />
                 {i === 0 && <span className="image-thumb-badge">Primary</span>}
-                <button type="button" className="image-thumb-remove" onClick={() => removeImage(i)}>&times;</button>
+                <button type="button" className="image-thumb-remove" onClick={() => removeExistingImage(img.id)}>&times;</button>
               </div>
             ))}
+            {previews.map((src, i) => {
+              const overallIndex = existingImages.length + i
+              return (
+                <div
+                  key={`new-${i}`}
+                  className={`image-thumb-item${dragIndex === i ? ' dragging' : ''}${overallIndex === 0 ? ' primary' : ''}`}
+                  draggable
+                  onDragStart={() => handleDragStart(i)}
+                  onDragOver={(e) => handleDragOver(e, i)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <img src={src} alt={`New ${i + 1}`} />
+                  {overallIndex === 0 && <span className="image-thumb-badge">Primary</span>}
+                  <button type="button" className="image-thumb-remove" onClick={() => removeNewImage(i)}>&times;</button>
+                </div>
+              )
+            })}
           </div>
         )}
 
         {error && <p className="error-msg">{error}</p>}
 
         <div className="form-row" style={{ marginTop: 16, gap: 12 }}>
-          <button type="button" className="btn btn-secondary" onClick={() => handleSave('draft')} disabled={submitting}>
-            {submitting ? 'Saving...' : 'Save as Draft'}
-          </button>
-          <button type="button" className="btn" onClick={() => handleSave('published')} disabled={submitting}>
-            {submitting ? 'Publishing...' : 'Publish'}
-          </button>
+          {isPublishedEdit ? (
+            <button type="button" className="btn" onClick={() => handleSave('published')} disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save'}
+            </button>
+          ) : (
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => handleSave('draft')} disabled={submitting}>
+                {submitting ? 'Saving...' : 'Save as Draft'}
+              </button>
+              <button type="button" className="btn" onClick={() => handleSave('published')} disabled={submitting}>
+                {submitting ? 'Publishing...' : 'Publish'}
+              </button>
+            </>
+          )}
         </div>
       </form>
     </div>
