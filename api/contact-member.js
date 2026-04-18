@@ -6,9 +6,7 @@ const supabase = createClient(
 )
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-// Set this to a verified sender address in Resend.
-// If not configured, defaults to Resend's onboarding sender for sandbox use.
-const FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'Based in Billings <onboarding@resend.dev>'
+const FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'RE Investors <noreply@omhagency.resend.com>'
 
 function escapeHtml(str) {
   return String(str)
@@ -137,12 +135,15 @@ export default async function handler(req, res) {
   // Notify the recipient (only for form submissions — text is opt-in by the sender)
   if (contactType === 'form') {
     const senderFull = [fromProfile.first_name, fromProfile.last_name].filter(Boolean).join(' ') || 'A member'
-    await supabase.from('notifications').insert({
+    console.log('[contact-member] inserting notification for:', toProfile.id)
+    const { error: notifErr } = await supabase.from('notifications').insert({
       profile_id: toProfile.id,
       title: 'New message',
       message: `${senderFull} sent you a message. Check your email to reply.`,
       link: '/profile',
     })
+    if (notifErr) console.error('[contact-member] notification insert failed:', notifErr.message)
+    else console.log('[contact-member] notification inserted OK')
   }
 
   return res.status(200).json({ success: true })

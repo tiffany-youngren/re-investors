@@ -106,12 +106,15 @@ export default async function handler(req, res) {
         message = `Your listing at ${updated.address} has been approved and is now live on the For Sale page.`
       }
       if (title) {
-        await supabase.from('notifications').insert({
+        console.log('[admin-properties] inserting notification:', { profile_id: updated.profile_id, title })
+        const { error: notifErr } = await supabase.from('notifications').insert({
           profile_id: updated.profile_id,
           title,
           message,
           link: '/profile',
-        }).then(() => {}, () => {})
+        })
+        if (notifErr) console.error('[admin-properties] notification insert failed:', notifErr.message)
+        else console.log('[admin-properties] notification inserted OK')
       }
     }
 

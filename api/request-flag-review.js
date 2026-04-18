@@ -73,6 +73,7 @@ export default async function handler(req, res) {
   const itemLabel = kind === 'property' ? `the listing at ${row.address}` : 'a buy box'
   const link = '/admin'
 
+  console.log('[request-flag-review] notifying admins:', admins?.length || 0)
   if (admins && admins.length > 0) {
     const rows = admins.map((a) => ({
       profile_id: a.id,
@@ -81,7 +82,8 @@ export default async function handler(req, res) {
       link,
     }))
     const { error: notifErr } = await supabase.from('notifications').insert(rows)
-    if (notifErr) console.warn('[request-flag-review] admin notify failed:', notifErr.message)
+    if (notifErr) console.error('[request-flag-review] admin notify failed:', notifErr.message)
+    else console.log('[request-flag-review] admin notifications inserted OK')
   }
 
   return res.status(200).json({ success: true })

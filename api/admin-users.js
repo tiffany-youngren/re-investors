@@ -6,7 +6,7 @@ const supabase = createClient(
 )
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'Based in Billings <onboarding@resend.dev>'
+const FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'RE Investors <noreply@omhagency.resend.com>'
 const APP_URL = process.env.APP_URL || 'https://reinvestors.aiwithtiffany.com'
 const SUPPORT_EMAIL = 'info@youngrensolutions.com'
 
@@ -136,13 +136,15 @@ function detectTransition(prev, next) {
 
 async function notifyUser(profileId, title, message, link = '/profile') {
   if (!profileId || !title) return
+  console.log('[admin-users] inserting notification:', { profile_id: profileId, title })
   const { error } = await supabase.from('notifications').insert({
     profile_id: profileId,
     title,
     message,
     link,
   })
-  if (error) console.warn('[admin-users] notification insert failed:', error.message)
+  if (error) console.error('[admin-users] notification insert failed:', error.message)
+  else console.log('[admin-users] notification inserted OK')
 }
 
 export default async function handler(req, res) {

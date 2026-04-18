@@ -106,12 +106,15 @@ export default async function handler(req, res) {
         message = 'Your buy box was approved and is now visible on the Buy Boxes page.'
       }
       if (title) {
-        await supabase.from('notifications').insert({
+        console.log('[admin-buyboxes] inserting notification:', { profile_id: updated.profile_id, title })
+        const { error: notifErr } = await supabase.from('notifications').insert({
           profile_id: updated.profile_id,
           title,
           message,
           link: '/profile',
-        }).then(() => {}, () => {})
+        })
+        if (notifErr) console.error('[admin-buyboxes] notification insert failed:', notifErr.message)
+        else console.log('[admin-buyboxes] notification inserted OK')
       }
     }
 

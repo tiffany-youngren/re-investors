@@ -6,7 +6,7 @@ const supabase = createClient(
 )
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'Based in Billings <onboarding@resend.dev>'
+const FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'RE Investors <noreply@omhagency.resend.com>'
 const APP_URL = process.env.APP_URL || 'https://reinvestors.aiwithtiffany.com'
 
 function escapeHtml(str) {
@@ -92,12 +92,14 @@ export default async function handler(req, res) {
 
     // Create notification
     if (p.profile_id) {
-      await supabase.from('notifications').insert({
+      console.log('[check-expirations] inserting notification for:', p.profile_id)
+      const { error: notifErr } = await supabase.from('notifications').insert({
         profile_id: p.profile_id,
         title: 'Listing expired',
         message: `Your listing at ${p.address} has expired. You can renew it from your profile.`,
         link: '/profile',
       })
+      if (notifErr) console.error('[check-expirations] notification failed:', notifErr.message)
     }
 
     // Send email (best-effort)
