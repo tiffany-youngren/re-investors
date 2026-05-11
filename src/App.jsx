@@ -5,7 +5,6 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import Footer from './components/Footer'
 import Home from './pages/Home'
-import About from './pages/About'
 import Login from './pages/Login'
 import PendingApproval from './pages/PendingApproval'
 import Buyers from './pages/Buyers'
@@ -43,7 +42,6 @@ function App() {
             {/* All routes with Layout (navbar) */}
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
               <Route
                 path="/buyers"
                 element={
