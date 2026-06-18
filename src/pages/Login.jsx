@@ -77,7 +77,7 @@ export default function Login() {
     setSubmitting(true)
 
     // Sign up the user
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+    const { error: signUpError } = await supabase.auth.signUp({ email, password })
 
     if (signUpError) {
       setError(signUpError.message)
@@ -85,32 +85,11 @@ export default function Login() {
       return
     }
 
-    // Auto-confirm the user via our API route
-    if (data.user) {
-      const confirmRes = await fetch('/api/auto-confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: data.user.id }),
-      })
-
-      if (!confirmRes.ok) {
-        const { error: confirmError } = await confirmRes.json()
-        setError(confirmError || 'Failed to confirm account. Please try logging in.')
-        setSubmitting(false)
-        return
-      }
-
-      // Now sign them in automatically
-      const { error: loginError } = await signIn(email, password)
-      if (loginError) {
-        setError('Account created! Please log in with your email and password.')
-        setMode('login')
-      } else {
-        // Brand new signup — send them to profile with a welcome message
-        navigate('/profile?welcome=1')
-      }
-    }
-
+    // Email confirmation is required: Supabase emails a confirmation link to the
+    // address they signed up with. They confirm their email, then log in. (The
+    // old public /api/auto-confirm admin endpoint was removed for security.)
+    setMessage('Account created! Check your email for a confirmation link, then log in.')
+    setMode('login')
     setSubmitting(false)
   }
 

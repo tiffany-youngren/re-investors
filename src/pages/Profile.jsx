@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -27,6 +27,14 @@ async function resizeAvatar(file, maxSize = 300) {
     }
     reader.readAsDataURL(file)
   })
+}
+
+// Format a meetup date for the dropdown label, e.g., "May 12, 2026"
+function formatMeetupLabel(dateStr) {
+  // dateStr is 'YYYY-MM-DD' — parse as local date, not UTC, to avoid off-by-one
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 function FlagReviewPanel({ kind, item, onSubmitted }) {
@@ -108,9 +116,14 @@ function FlagReviewPanel({ kind, item, onSubmitted }) {
 export default function Profile() {
   const { user, profile, refreshProfile } = useAuth()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const isWelcome = searchParams.get('welcome') === '1'
   const isUpgrade = searchParams.get('upgrade') === '1'
+
+  // Application mode = brand-new applicant OR existing user who is still pending
+  const isPending = profile && profile.approved === false
+  const isApplicationMode = isWelcome || isPending
 
   // Form state
   const [firstName, setFirstName] = useState(profile?.first_name || '')
@@ -127,10 +140,29 @@ export default function Profile() {
   const [attendsMeetups, setAttendsMeetups] = useState(
     profile?.attends_meetups === true ? 'yes' : profile?.attends_meetups === false ? 'no' : ''
   )
+  const [lastMeetupAttended, setLastMeetupAttended] = useState(profile?.last_meetup_attended || '')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
+  // Fetch the 3 most recent past meetups for the dropdown
+  // Logic: show past meetups (date <= today). Most recent first. Limit 3.
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const { data: pastMeetups = [] } = useQuery({
+    queryKey: ['past-meetups'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('meetups')
+        .select('id, meetup_date')
+        .lte('meetup_date', todayIso)
+        .order('meetup_date', { ascending: false })
+        .limit(3)
+      if (error) throw error
+      return data
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes — meetups don't change often
+  })
 
   // Fetch user's properties
   const { data: properties = [] } = useQuery({
@@ -144,7 +176,7 @@ export default function Profile() {
       if (error) throw error
       return data
     },
-    enabled: !!profile?.id,
+    enabled: !!profile?.id && !isApplicationMode,
   })
 
   // Fetch user's buy boxes
@@ -159,12 +191,11 @@ export default function Profile() {
       if (error) throw error
       return data
     },
-    enabled: !!profile?.id,
+    enabled: !!profile?.id && !isApplicationMode,
   })
 
   const deletePropertyMutation = useMutation({
     mutationFn: async (property) => {
-      // Delete images from storage
       if (property.property_images?.length > 0) {
         const paths = property.property_images.map((img) => {
           try {
@@ -223,7 +254,7 @@ export default function Profile() {
     }
   }
 
-  function promptNewExpiration(current) {
+  function promptNewExpiration() {
     const today = new Date()
     const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + 30)
     const defaultVal = maxDate.toISOString().slice(0, 10)
@@ -259,10 +290,10 @@ export default function Profile() {
     }
   }
 
-  function handleRenew(property) {
+  function handleRenew() {
     const newDate = promptNewExpiration()
     if (!newDate) return
-    updatePropertyStatusMutation.mutate({ id: property.id, status: 'active', expires_at: newDate })
+    updatePropertyStatusMutation.mutate({ id: arguments[0].id, status: 'active', expires_at: newDate })
   }
 
   function addInvestmentArea() {
@@ -315,7 +346,6 @@ export default function Profile() {
       return
     }
 
-    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
     const profileData = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
@@ -327,6 +357,7 @@ export default function Profile() {
       brokerage_name: licenseStatus === 'licensed' ? brokerageName.trim() : null,
       investment_areas: investmentAreas,
       attends_meetups: attendsMeetups === 'yes' ? true : attendsMeetups === 'no' ? false : null,
+      last_meetup_attended: lastMeetupAttended || null,
     }
 
     let result
@@ -339,8 +370,13 @@ export default function Profile() {
     if (result.error) {
       setError(result.error.message)
     } else {
-      setSuccess('Profile saved.')
       await refreshProfile()
+      // If they were in application mode and just hit save, send them to pending
+      if (isApplicationMode) {
+        navigate('/pending')
+        return
+      }
+      setSuccess('Profile saved.')
     }
 
     setSubmitting(false)
@@ -349,16 +385,229 @@ export default function Profile() {
   const isMember = profile?.role === 'member' || profile?.role === 'admin'
   const isVisitor = profile?.role === 'visitor'
 
+  // ===================================================================
+  // APPLICATION MODE — pending applicants or brand-new welcome flow
+  // Shows ONLY the application form, no listings, no other actions
+  // ===================================================================
+  if (isApplicationMode) {
+    return (
+      <div className="profile-page">
+        <h1>Membership Application</h1>
+
+        {isPending && !isWelcome && (
+          <div className="profile-warning" style={{ marginBottom: 20, background: '#FDF1E5', borderColor: '#F5D9BC', color: '#9A4400' }}>
+            <p style={{ margin: 0 }}>
+              <strong>Application pending review.</strong> Admin will verify your investor
+              status and meetup attendance before approving. You won't have access to the
+              member portal (For Sale listings, Buy Boxes, member messaging) until approved.
+              You can update your application below at any time.
+            </p>
+          </div>
+        )}
+
+        {isWelcome && (
+          <div className="profile-notice" style={{ marginBottom: 20 }}>
+            <h2>Welcome — let's get you set up.</h2>
+            <p style={{ margin: 0 }}>
+              Fill out the application below. Admin will review your investor status and meetup
+              attendance, then unlock the member portal. You can update this any time.
+            </p>
+          </div>
+        )}
+
+        {/* Avatar */}
+        <div className="profile-avatar-section">
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="Avatar" className="profile-avatar-lg" />
+          ) : (
+            <div className="profile-avatar-lg profile-avatar-placeholder">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+          )}
+          <div>
+            <label className="btn btn-sm btn-secondary avatar-upload-btn">
+              {uploadingAvatar ? 'Uploading...' : 'Add Photo'}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                disabled={uploadingAvatar}
+                hidden
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="form-card">
+          <form onSubmit={handleSubmit}>
+            <div className="form-row">
+              <div className="form-field">
+                <label htmlFor="firstName">First Name</label>
+                <input id="firstName" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+              </div>
+              <div className="form-field">
+                <label htmlFor="lastName">Last Name</label>
+                <input id="lastName" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+              </div>
+            </div>
+
+            <label htmlFor="profileEmail">Email</label>
+            <input id="profileEmail" type="email" value={user?.email || ''} disabled />
+
+            <label htmlFor="profilePhone">Phone</label>
+            <div className="phone-input-row">
+              <select
+                className="phone-country-select"
+                value={phoneCountryCode}
+                onChange={(e) => {
+                  const newCode = e.target.value
+                  setPhoneCountryCode(newCode)
+                  setPhone(formatPhone(phone, newCode))
+                }}
+              >
+                {COUNTRY_CODES.map((c, i) => (
+                  <option key={`${c.code}-${c.label}-${i}`} value={c.code}>{c.label} {c.code}</option>
+                ))}
+              </select>
+              <input
+                id="profilePhone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(formatPhone(e.target.value, phoneCountryCode))}
+                placeholder={phoneCountryCode === '+1' ? '(xxx) xxx-xxxx' : 'Phone number'}
+                required
+              />
+            </div>
+            <p className="field-note" style={{ marginTop: 6 }}>
+              <strong>Important:</strong> This phone number MUST match the number where you
+              receive the monthly meetup dinner invitations. Mismatched numbers cause delays
+              in approval.
+            </p>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label htmlFor="profileCity">City</label>
+                <input id="profileCity" type="text" value={city} onChange={(e) => setCity(e.target.value)} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="profileState">State</label>
+                <select id="profileState" value={state} onChange={(e) => setState(e.target.value)}>
+                  <option value="">Select...</option>
+                  {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <label htmlFor="profileLicense">License Status</label>
+            <select
+              id="profileLicense"
+              value={licenseStatus}
+              onChange={(e) => {
+                setLicenseStatus(e.target.value)
+                if (e.target.value !== 'licensed') setBrokerageName('')
+              }}
+              required
+            >
+              <option value="">Select...</option>
+              <option value="unlicensed">Unlicensed</option>
+              <option value="licensed">Licensed Agent/Broker</option>
+            </select>
+
+            {licenseStatus === 'licensed' && (
+              <>
+                <label htmlFor="profileBrokerage">Brokerage Name</label>
+                <input id="profileBrokerage" type="text" value={brokerageName} onChange={(e) => setBrokerageName(e.target.value)} required />
+              </>
+            )}
+
+            <label>Investment Areas</label>
+            <div className="investment-areas">
+              {investmentAreas.map((area, i) => (
+                <div key={i} className="investment-area-item">
+                  <span>{area.city}, {area.state}</span>
+                  <button type="button" className="remove-img-btn" onClick={() => removeInvestmentArea(i)}>Remove</button>
+                </div>
+              ))}
+              <div className="form-row investment-area-add">
+                <div className="form-field" style={{ flex: 3 }}>
+                  <input type="text" placeholder="City" value={newAreaCity} onChange={(e) => setNewAreaCity(e.target.value)} />
+                </div>
+                <div className="form-field" style={{ flex: 1 }}>
+                  <select value={newAreaState} onChange={(e) => setNewAreaState(e.target.value)}>
+                    <option value="">State</option>
+                    {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <button type="button" className="btn btn-sm btn-secondary" onClick={addInvestmentArea}>Add</button>
+              </div>
+            </div>
+
+            <label htmlFor="lastMeetup" style={{ marginTop: 16 }}>
+              When was the last Billings Real Estate Meetup hosted by Tiffany and Duane that you attended?
+            </label>
+            <select
+              id="lastMeetup"
+              value={lastMeetupAttended}
+              onChange={(e) => setLastMeetupAttended(e.target.value)}
+              required
+            >
+              <option value="">Select...</option>
+              {pastMeetups.map((m) => (
+                <option key={m.id} value={m.id}>{formatMeetupLabel(m.meetup_date)}</option>
+              ))}
+              <option value="none">None Recently</option>
+            </select>
+
+            <fieldset className="financing-fieldset" style={{ marginTop: 16 }}>
+              <legend>I attend (or will attend) at least 5 meetups per year. *</legend>
+              <label className="checkbox-label">
+                <input
+                  type="radio"
+                  name="attendsMeetups"
+                  value="yes"
+                  checked={attendsMeetups === 'yes'}
+                  onChange={() => setAttendsMeetups('yes')}
+                  required
+                />
+                Yes — I commit to attending at least 5 meetups per year
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="radio"
+                  name="attendsMeetups"
+                  value="no"
+                  checked={attendsMeetups === 'no'}
+                  onChange={() => setAttendsMeetups('no')}
+                />
+                No
+              </label>
+            </fieldset>
+            <p className="field-note">
+              <strong>Note:</strong> Members who don't check in at a meetup within 3 months
+              will lose access to post For Sale Listings and Buy Boxes until they attend again.
+            </p>
+
+            {error && <p className="error-msg">{error}</p>}
+            {success && <p className="success-msg">{success}</p>}
+
+            <button type="submit" className="btn" disabled={submitting}>
+              {submitting ? 'Submitting...' : (isPending ? 'Update Application' : 'Submit Application')}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  // ===================================================================
+  // FULL PROFILE MODE — approved members and admins
+  // ===================================================================
   return (
     <div className="profile-page">
       <h1>Your Profile</h1>
-
-      {isWelcome && (
-        <div className="profile-notice" style={{ marginBottom: 20 }}>
-          <h2>Welcome!</h2>
-          <p>Please complete your profile to get started.</p>
-        </div>
-      )}
 
       {isUpgrade && (
         <div className="profile-warning" style={{ marginBottom: 20 }}>
@@ -438,6 +687,10 @@ export default function Profile() {
               required
             />
           </div>
+          <p className="field-note" style={{ marginTop: 6 }}>
+            <strong>Important:</strong> This phone number MUST match the number where you
+            receive the monthly meetup dinner invitations.
+          </p>
 
           <div className="form-row">
             <div className="form-field">
@@ -475,7 +728,6 @@ export default function Profile() {
             </>
           )}
 
-          {/* Investment areas */}
           <label>Investment Areas</label>
           <div className="investment-areas">
             {investmentAreas.map((area, i) => (
@@ -498,8 +750,23 @@ export default function Profile() {
             </div>
           </div>
 
+          <label htmlFor="lastMeetup" style={{ marginTop: 16 }}>
+            Last Billings Real Estate Meetup you attended (hosted by Tiffany &amp; Duane)
+          </label>
+          <select
+            id="lastMeetup"
+            value={lastMeetupAttended}
+            onChange={(e) => setLastMeetupAttended(e.target.value)}
+          >
+            <option value="">Select...</option>
+            {pastMeetups.map((m) => (
+              <option key={m.id} value={m.id}>{formatMeetupLabel(m.meetup_date)}</option>
+            ))}
+            <option value="none">None Recently</option>
+          </select>
+
           <fieldset className="financing-fieldset" style={{ marginTop: 16 }}>
-            <legend>Do you regularly attend Based in Billings Real Estate Investment meetups? *</legend>
+            <legend>I attend (or will attend) at least 5 meetups per year. *</legend>
             <label className="checkbox-label">
               <input
                 type="radio"
@@ -509,7 +776,7 @@ export default function Profile() {
                 onChange={() => setAttendsMeetups('yes')}
                 required
               />
-              Yes
+              Yes — I commit to attending at least 5 meetups per year
             </label>
             <label className="checkbox-label">
               <input
@@ -523,9 +790,8 @@ export default function Profile() {
             </label>
           </fieldset>
           <p className="field-note">
-            We encourage members to attend all monthly meetings. You must have attended at least 2
-            of the last 4 meetups to be approved as a member and post For Sale Properties and Buy
-            Boxes on the site.
+            <strong>Note:</strong> Members who don't check in at a meetup within 3 months
+            will lose access to post For Sale Listings and Buy Boxes until they attend again.
           </p>
 
           {error && <p className="error-msg">{error}</p>}
@@ -537,7 +803,6 @@ export default function Profile() {
         </form>
       </div>
 
-      {/* Solicitation warning */}
       <div className="profile-warning">
         <p>
           Any member or visitor who contacts a member to solicit outside of what is listed here
@@ -545,7 +810,6 @@ export default function Profile() {
         </p>
       </div>
 
-      {/* Member actions */}
       {isMember && (
         <div className="profile-actions">
           <Link to="/sellers" className="btn">Post a Property</Link>
@@ -553,7 +817,6 @@ export default function Profile() {
         </div>
       )}
 
-      {/* My properties */}
       {isMember && properties.length > 0 && (
         <div className="profile-section">
           <h2>Your Property Listings</h2>
@@ -612,7 +875,11 @@ export default function Profile() {
                     {p.status === 'expired' && (
                       <button
                         className="btn btn-sm"
-                        onClick={() => handleRenew(p)}
+                        onClick={() => {
+                          const newDate = promptNewExpiration()
+                          if (!newDate) return
+                          updatePropertyStatusMutation.mutate({ id: p.id, status: 'active', expires_at: newDate })
+                        }}
                         disabled={updatePropertyStatusMutation.isPending}
                       >
                         Renew
@@ -633,7 +900,6 @@ export default function Profile() {
         </div>
       )}
 
-      {/* My buy boxes */}
       {isMember && buyBoxes.length > 0 && (
         <div className="profile-section">
           <h2>Your Buy Boxes</h2>
@@ -682,7 +948,6 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Visitor notice */}
       {isVisitor && (
         <div className="profile-notice">
           <h2>Becoming a Member</h2>

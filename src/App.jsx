@@ -85,7 +85,7 @@ function App() {
               <Route
                 path="/profile"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowPending>
                     <Profile />
                   </ProtectedRoute>
                 }

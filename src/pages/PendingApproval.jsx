@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function PendingApproval() {
@@ -8,10 +8,12 @@ export default function PendingApproval() {
     return <div className="loading">Loading...</div>
   }
 
+  // Not logged in → go to login
   if (!user) {
     return <Navigate to="/login" replace />
   }
 
+  // Already approved → straight to the member portal
   if (profile && profile.approved) {
     return <Navigate to="/buyers" replace />
   }
@@ -22,6 +24,7 @@ export default function PendingApproval() {
   }
 
   const isDeclined = profile?.role === 'declined' || profile?.declined === true
+  const applicationStarted = !!(profile?.first_name && profile?.last_name && profile?.phone)
 
   return (
     <div className="pending-page">
@@ -30,15 +33,29 @@ export default function PendingApproval() {
           <h1>Access Revoked</h1>
           <p>Your access to the Based in Billings RE Investors portal has been revoked by an admin.</p>
           <p>If you believe this was a mistake, please contact an admin directly.</p>
+          <button onClick={handleLogOut} className="btn btn-secondary">Log Out</button>
+        </>
+      ) : applicationStarted ? (
+        <>
+          <h1>Application Received</h1>
+          <p>Thank you for applying. Admin will review your application and verify your meetup
+          attendance before approving your membership.</p>
+          <p>You can update your application any time.</p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+            <Link to="/profile" className="btn">View / Update Application</Link>
+            <button onClick={handleLogOut} className="btn btn-secondary">Log Out</button>
+          </div>
         </>
       ) : (
         <>
-          <h1>Pending Approval</h1>
-          <p>Your account has been created but is waiting for admin approval.</p>
-          <p>You'll be able to access the site once an admin approves your membership.</p>
+          <h1>Complete Your Application</h1>
+          <p>Welcome! To finish creating your account, please complete the membership application.</p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+            <Link to="/profile?welcome=1" className="btn">Complete Application</Link>
+            <button onClick={handleLogOut} className="btn btn-secondary">Log Out</button>
+          </div>
         </>
       )}
-      <button onClick={handleLogOut} className="btn btn-secondary">Log Out</button>
     </div>
   )
 }

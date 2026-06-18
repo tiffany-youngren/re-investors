@@ -1,7 +1,16 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-export default function ProtectedRoute({ children, requireAdmin, requireMember }) {
+/**
+ * Route gate for authenticated pages.
+ *
+ * Props:
+ *  - requireAdmin: only allow profile.role === 'admin'
+ *  - requireMember: only allow members + admins (blocks visitors)
+ *  - allowPending: allow users with profile.approved === false (used by /profile so
+ *    new applicants can fill out their application without being bounced to /pending)
+ */
+export default function ProtectedRoute({ children, requireAdmin, requireMember, allowPending }) {
   const { user, profile, profileError, loading, roleLoading, refreshProfile } = useAuth()
 
   // Show spinner while auth or profile is loading
@@ -14,7 +23,7 @@ export default function ProtectedRoute({ children, requireAdmin, requireMember }
     return <Navigate to="/login" replace />
   }
 
-  // Profile query failed — show retry, don't redirect to pending
+  // Profile query failed — show retry, don't redirect
   if (profileError && !profile) {
     return (
       <div className="loading">
@@ -24,22 +33,24 @@ export default function ProtectedRoute({ children, requireAdmin, requireMember }
     )
   }
 
-  // Profile loaded successfully and not approved — go to pending
-  if (profile && !profile.approved) {
-    return <Navigate to="/pending" replace />
-  }
-
   // Profile not loaded yet (null, no error) — still loading
   if (!profile) {
     return <div className="loading">Loading profile...</div>
   }
 
-  // Trying to access admin without admin role — go to home
+  // Not approved
+  //   - If this route allows pending users (e.g., /profile), let them through
+  //   - Otherwise send them to /pending
+  if (!profile.approved && !allowPending) {
+    return <Navigate to="/pending" replace />
+  }
+
+  // Admin-only route check
   if (requireAdmin && profile.role !== 'admin') {
     return <Navigate to="/" replace />
   }
 
-  // Member-only route (visitors blocked) — send to profile with explanation
+  // Member-only route check (visitors blocked)
   if (requireMember && profile.role !== 'member' && profile.role !== 'admin') {
     return <Navigate to="/profile?upgrade=1" replace />
   }
