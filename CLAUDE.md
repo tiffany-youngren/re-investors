@@ -16,7 +16,7 @@ Member portal for the Based in Billings real estate investor meetup group. Membe
 
 ## External Services
 - `VITE_SUPABASE_URL` — Supabase project URL (used in frontend)
-- `VITE_SUPABASE_ANON_KEY` — Supabase anonymous/public key (used in frontend)
+- `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase publishable key (`sb_publishable_…`, used in frontend)
 - `SUPABASE_SECRET_KEY` — Supabase secret key (`sb_secret_…`, used in API routes only, NEVER in frontend)
 
 ## User Roles
@@ -55,7 +55,7 @@ Member portal for the Based in Billings real estate investor meetup group. Membe
 ## Environment Variables
 Set in Vercel dashboard (Settings → Environment Variables → all environments):
 - `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SECRET_KEY`
 
 ## Deploy
